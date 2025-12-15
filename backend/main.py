@@ -113,6 +113,66 @@ async def health_check():
     }
 
 
+@app.get("/api/mcp-config")
+async def get_mcp_config():
+    """
+    Get MCP configuration status.
+    
+    This endpoint returns information about MCP (OAuth Identity Passthrough)
+    configuration, useful for debugging and verification.
+    
+    Returns:
+        Dict with MCP configuration details
+    """
+    logger.info("MCP config check requested")
+    return {
+        "mcp_enabled": settings.MCP_ENABLED,
+        "description": "OAuth Identity Passthrough (MCP) for Azure Foundry agents",
+        "status": "enabled" if settings.MCP_ENABLED else "disabled",
+        "implementation": {
+            "headers_used": ["X-User-Id", "X-User-Email"],
+            "context_includes": [
+                "oauth_token",
+                "user_identity (azure_id, email, name)",
+                "mcp_enabled flag",
+                "timestamp"
+            ]
+        },
+        "how_to_verify": {
+            "step_1": "Send a chat message with authentication",
+            "step_2": "Check backend logs for '✓ MCP ENABLED' message",
+            "step_3": "Verify X-User-Id and X-User-Email headers in logs",
+            "step_4": "Check 'Request headers being sent' in logs"
+        }
+    }
+
+
+@app.get("/api/user-context")
+async def get_user_context(current_user: UserProfile = Depends(get_current_user)):
+    """
+    Get current user context information.
+    
+    This endpoint can be called by Azure Foundry agents (as a tool) to retrieve
+    the authenticated user's information. Agents can use this to personalize
+    responses with the user's email and name.
+    
+    Returns:
+        Dict with user identity information
+    """
+    logger.info(f"User context requested for: {current_user.email}")
+    return {
+        "success": True,
+        "user": {
+            "azure_id": current_user.azure_id,
+            "email": current_user.email,
+            "name": current_user.name,
+            "display_name": current_user.display_name
+        },
+        "message": f"User {current_user.name} is logged in as {current_user.email}",
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+
 # Authentication Endpoints
 @app.get("/api/auth/me", response_model=UserProfile)
 async def get_current_user_profile(
@@ -409,6 +469,17 @@ async def send_chat_message(
     """
     try:
         logger.info(f"Processing message for session {request.session_id}")
+        
+        # Log MCP context at entry point
+        logger.info("═══ MCP CONTEXT AT ENDPOINT ═══")
+        logger.info(f"MCP Context Available: {mcp_context is not None}")
+        if mcp_context:
+            logger.info(f"MCP Enabled: {mcp_context.get('mcp_enabled')}")
+            user_id = mcp_context.get('user_identity', {}).get('azure_id', 'unknown')
+            user_email = mcp_context.get('user_identity', {}).get('email', 'unknown')
+            logger.info(f"User Identity - Email: {user_email}, ID: {user_id}")
+            logger.info(f"Current User - Email: {current_user.email}, ID: {current_user.id}")
+        logger.info("══════════════════════════════")
 
         # Verify session exists and belongs to user - wrap blocking I/O in asyncio.to_thread()
         session_entity = await asyncio.to_thread(
@@ -473,6 +544,9 @@ async def send_chat_message(
 
         # Send message to agent with MCP context
         logger.info(f"Calling agent {agent.azure_agent_id} with MCP context")
+        logger.info(f"MCP Context being passed: {bool(mcp_context)}")
+        if mcp_context:
+            logger.info(f"  └─ MCP will include user: {mcp_context.get('user_identity', {}).get('email')}")
         agent_response = await foundry_client.send_message(
             agent_id=agent.azure_agent_id,
             message=request.content,
@@ -519,6 +593,123 @@ async def send_chat_message(
             detail=f"Failed to process message: {str(e)}"
         )
 
+@app.post("/api/chat/stream")
+async def send_chat_message_stream(
+    request: SendMessageRequest,
+    current_user: UserProfile = Depends(get_current_user),
+    mcp_context: Dict[str, Any] = Depends(get_mcp_context)
+):
+    """
+    Send a message to an agent and stream the response in real-time.
+
+    This endpoint uses a FastAPI StreamingResponse to deliver the agent's
+    response chunks instantly as they are received from Azure Foundry.
+
+    Headers:
+        Authorization: Bearer <azure_ad_access_token>
+
+    Body:
+        SendMessageRequest: session_id, content
+
+    Returns:
+        StreamingResponse (text/event-stream): Stream of response content
+    """
+    try:
+        logger.info(f"Streaming message request for session {request.session_id}")
+
+        # 1. Verify session (same logic as send_chat_message)
+        session_entity = await asyncio.to_thread(
+            table_storage.get_session_by_id,
+            user_azure_id=current_user.azure_id,
+            session_id=str(request.session_id)
+        )
+
+        if not session_entity:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Session not found"
+            )
+
+        # 2. Store user message (You will need to create a placeholder/incomplete message
+        #    in the database if you want to store the stream, but for simplicity,
+        #    we'll skip user message storage here for a cleaner demo)
+
+        # 3. Get conversation history (same logic)
+        message_entities = await asyncio.to_thread(
+            table_storage.get_session_messages,
+            str(request.session_id),
+            limit=20
+        )
+
+        conversation_history = [
+            {"role": msg["role"], "content": msg["content"]}
+            for msg in message_entities
+        ]
+
+        # 4. Get agent info (same logic)
+        agent = await foundry_client.get_agent_by_id(session_entity["agent_id"])
+        if not agent:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Agent not found"
+            )
+
+        # 5. Define the asynchronous generator for streaming
+        async def stream_generator():
+            full_response_content = ""
+            
+            # Start the stream from the Foundry Client
+            async for chunk in foundry_client.send_message_stream(
+                agent_id=agent.azure_agent_id,
+                message=request.content,
+                conversation_history=conversation_history,
+                mcp_context=mcp_context
+            ):
+                # Accumulate content for eventual storage
+                full_response_content += chunk
+                
+                # Yield the chunk immediately to the client
+                yield chunk
+
+            # --- Post-Stream Storage (Crucial Step for History) ---
+            logger.info(f"Stream complete. Storing response for session {request.session_id}")
+            
+            # Store the final agent response
+            if full_response_content:
+                await asyncio.to_thread(
+                    table_storage.create_message,
+                    session_id=str(request.session_id),
+                    role="assistant",
+                    content=full_response_content,
+                    metadata={"stream_complete": True}
+                )
+            
+            # Update session timestamp
+            await asyncio.to_thread(
+                table_storage.update_session_timestamp,
+                user_azure_id=current_user.azure_id,
+                session_id=str(request.session_id)
+            )
+            # --- End Post-Stream Storage ---
+
+        # 6. Return StreamingResponse
+        # Note: We use 'text/plain' or 'text/event-stream' here depending on the client expectation.
+        # Since the generator yields raw content chunks (not full SSE packets), 'text/plain' is often simpler for a client to consume.
+        # If the client expects formal SSE, you'd wrap the chunks in "data: ..." format.
+        return StreamingResponse(
+            stream_generator(),
+            media_type="text/plain" 
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error streaming message: {str(e)}")
+        # If the streaming fails before the response starts, raise an HTTP error.
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to stream message: {str(e)}"
+        )
 
 @app.delete("/api/sessions/{session_id}")
 async def delete_session(

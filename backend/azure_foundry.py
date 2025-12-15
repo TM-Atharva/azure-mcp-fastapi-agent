@@ -257,6 +257,15 @@ class AzureFoundryClient:
             # Build conversation messages in OpenAI format
             messages = []
             
+            # Inject user context at the beginning if MCP is enabled
+            user_context_info = ""
+            if mcp_context and settings.MCP_ENABLED:
+                user_identity = mcp_context.get("user_identity", {})
+                user_email = user_identity.get("email", "unknown")
+                user_name = user_identity.get("name", "User")
+                user_context_info = f"\n[System Context: You are chatting with {user_name} ({user_email})]"
+                logger.info(f"✓ User context injected into message: {user_name} ({user_email})")
+            
             # Add conversation history first
             for msg in conversation_history:
                 messages.append({
@@ -264,10 +273,16 @@ class AzureFoundryClient:
                     "content": msg.get("content", "")
                 })
             
-            # Add current user message
+            # Add current user message with context prepended if available
+            user_message_content = message
+            if user_context_info:
+                # Only add context to the first message to avoid repetition
+                if not conversation_history or len(conversation_history) == 0:
+                    user_message_content = user_context_info + "\n\nUser message: " + message
+            
             messages.append({
                 "role": "user",
-                "content": message
+                "content": user_message_content
             })
 
             # Prepare request payload for chat completions
@@ -286,20 +301,29 @@ class AzureFoundryClient:
             if mcp_context and settings.MCP_ENABLED:
                 # Include user context in headers for audit trail
                 user_identity = mcp_context.get("user_identity", {})
-
-# FIX: Ensure both values are non-None strings before assigning to headers
+                # FIX: Ensure both values are non-None strings before assigning to headers
                 user_id = str(user_identity.get("azure_id") or "unknown")
                 user_email = str(user_identity.get("email") or "unknown")
 
                 headers["X-User-Id"] = user_id
                 headers["X-User-Email"] = user_email
-                logger.info(f"MCP enabled - User: {user_identity.get('email')}")
+                
+                # Enhanced logging for MCP verification
+                logger.info("✓ MCP ENABLED AND CONFIGURED")
+                logger.info(f"  ├─ User Email: {user_email}")
+                logger.info(f"  ├─ User ID: {user_id}")
+                logger.info(f"  ├─ X-User-Id Header: {headers.get('X-User-Id')}")
+                logger.info(f"  ├─ X-User-Email Header: {headers.get('X-User-Email')}")
+                logger.info(f"  └─ MCP Enabled Setting: {settings.MCP_ENABLED}")
+            else:
+                logger.warning(f"⚠ MCP NOT ENABLED - mcp_context: {bool(mcp_context)}, MCP_ENABLED: {settings.MCP_ENABLED}")
 
             # Call the Model Inference API chat completions endpoint
             # Endpoint: POST /models/chat/completions?api-version=2024-05-01-preview
             endpoint = f"{self.endpoint}/models/chat/completions"
             
             logger.info(f"Calling endpoint: {endpoint}")
+            logger.info(f"Request headers being sent: {dict(headers)}")
             logger.info(f"Request payload: {json.dumps(payload, indent=2)}")
             
             async with httpx.AsyncClient(

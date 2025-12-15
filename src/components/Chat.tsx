@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from "react";
 import {
   Send,
   Bot,
@@ -7,9 +7,9 @@ import {
   Loader2,
   AlertCircle,
   Trash2,
-} from 'lucide-react';
-import { apiClient } from '../services/api';
-import type { Agent, ChatSession, ChatMessage } from '../types';
+} from "lucide-react";
+import { apiClient } from "../services/api";
+import type { Agent, ChatSession, ChatMessage } from "../types";
 
 interface ChatProps {
   agent: Agent;
@@ -19,7 +19,7 @@ interface ChatProps {
 const Chat: React.FC<ChatProps> = ({ agent, onBack }) => {
   const [session, setSession] = useState<ChatSession | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [inputMessage, setInputMessage] = useState('');
+  const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +35,7 @@ const Chat: React.FC<ChatProps> = ({ agent, onBack }) => {
   }, [messages]);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   const initializeChat = async () => {
@@ -50,7 +50,7 @@ const Chat: React.FC<ChatProps> = ({ agent, onBack }) => {
 
       setSession(sessionResponse.session);
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to create chat session');
+      setError(err.response?.data?.detail || "Failed to create chat session");
     } finally {
       setIsLoading(false);
     }
@@ -60,13 +60,13 @@ const Chat: React.FC<ChatProps> = ({ agent, onBack }) => {
     if (!inputMessage.trim() || !session || isSending) return;
 
     const messageContent = inputMessage.trim();
-    setInputMessage('');
+    setInputMessage("");
     setError(null);
 
     const tempUserMessage: ChatMessage = {
       id: `temp-${Date.now()}`,
       session_id: session.id,
-      role: 'user',
+      role: "user",
       content: messageContent,
       metadata: {},
       created_at: new Date().toISOString(),
@@ -90,7 +90,7 @@ const Chat: React.FC<ChatProps> = ({ agent, onBack }) => {
         response.message,
       ]);
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to send message');
+      setError(err.response?.data?.detail || "Failed to send message");
       setMessages((prev) => prev.filter((m) => m.id !== tempUserMessage.id));
       setInputMessage(messageContent);
     } finally {
@@ -100,20 +100,24 @@ const Chat: React.FC<ChatProps> = ({ agent, onBack }) => {
   };
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
     }
   };
 
   const handleDeleteSession = async () => {
-    if (!session || !window.confirm('Are you sure you want to delete this chat?')) return;
+    if (
+      !session ||
+      !window.confirm("Are you sure you want to delete this chat?")
+    )
+      return;
 
     try {
       await apiClient.deleteSession(session.id);
       onBack();
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to delete session');
+      setError(err.response?.data?.detail || "Failed to delete session");
     }
   };
 
@@ -145,6 +149,14 @@ const Chat: React.FC<ChatProps> = ({ agent, onBack }) => {
             <div>
               <h2 className="font-semibold text-slate-900">{agent.name}</h2>
               <p className="text-xs text-slate-500">AI Assistant</p>
+              {agent.capabilities?.deployment_model_name && (
+                <p className="text-xs text-slate-400 mt-1">
+                  Model:{" "}
+                  <span className="text-blue-600 font-medium">
+                    {agent.capabilities.deployment_model_name}
+                  </span>
+                </p>
+              )}
             </div>
           </div>
           <button
@@ -169,7 +181,8 @@ const Chat: React.FC<ChatProps> = ({ agent, onBack }) => {
                   Start your conversation
                 </h3>
                 <p className="text-slate-600">
-                  Ask me anything! I'm here to help you with my specialized knowledge.
+                  Ask me anything! I'm here to help you with my specialized
+                  knowledge.
                 </p>
               </div>
             </div>
@@ -178,16 +191,18 @@ const Chat: React.FC<ChatProps> = ({ agent, onBack }) => {
           {messages.map((message) => (
             <div
               key={message.id}
-              className={`flex gap-3 ${message.role === 'user' ? 'flex-row-reverse' : ''}`}
+              className={`flex gap-3 ${
+                message.role === "user" ? "flex-row-reverse" : ""
+              }`}
             >
               <div
                 className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-                  message.role === 'user'
-                    ? 'bg-slate-700'
-                    : 'bg-gradient-to-br from-blue-500 to-blue-600'
+                  message.role === "user"
+                    ? "bg-slate-700"
+                    : "bg-gradient-to-br from-blue-500 to-blue-600"
                 }`}
               >
-                {message.role === 'user' ? (
+                {message.role === "user" ? (
                   <User className="w-4 h-4 text-white" />
                 ) : (
                   <Bot className="w-4 h-4 text-white" />
@@ -195,22 +210,24 @@ const Chat: React.FC<ChatProps> = ({ agent, onBack }) => {
               </div>
               <div
                 className={`flex-1 max-w-3xl ${
-                  message.role === 'user' ? 'flex justify-end' : ''
+                  message.role === "user" ? "flex justify-end" : ""
                 }`}
               >
                 <div
                   className={`inline-block px-4 py-3 rounded-2xl ${
-                    message.role === 'user'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white text-slate-900 shadow-sm'
+                    message.role === "user"
+                      ? "bg-blue-600 text-white"
+                      : "bg-white text-slate-900 shadow-sm"
                   }`}
                 >
-                  <p className="whitespace-pre-wrap break-words">{message.content}</p>
+                  <p className="whitespace-pre-wrap break-words">
+                    {message.content}
+                  </p>
                 </div>
                 <p className="text-xs text-slate-500 mt-1 px-2">
                   {new Date(message.created_at).toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit',
+                    hour: "2-digit",
+                    minute: "2-digit",
                   })}
                 </p>
               </div>
@@ -227,11 +244,11 @@ const Chat: React.FC<ChatProps> = ({ agent, onBack }) => {
                   <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" />
                   <div
                     className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"
-                    style={{ animationDelay: '0.1s' }}
+                    style={{ animationDelay: "0.1s" }}
                   />
                   <div
                     className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"
-                    style={{ animationDelay: '0.2s' }}
+                    style={{ animationDelay: "0.2s" }}
                   />
                 </div>
               </div>

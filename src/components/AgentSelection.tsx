@@ -1,7 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import { Bot, ChevronRight, Loader2, AlertCircle, Sparkles } from 'lucide-react';
-import { apiClient } from '../services/api';
-import type { Agent } from '../types';
+import React, { useEffect, useState } from "react";
+import {
+  Bot,
+  ChevronRight,
+  Loader2,
+  AlertCircle,
+  Sparkles,
+} from "lucide-react";
+import { apiClient } from "../services/api";
+import type { Agent } from "../types";
 
 interface AgentSelectionProps {
   onSelectAgent: (agent: Agent) => void;
@@ -24,7 +30,7 @@ const AgentSelection: React.FC<AgentSelectionProps> = ({ onSelectAgent }) => {
       const response = await apiClient.getAgents();
       setAgents(response.agents);
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to load agents');
+      setError(err.response?.data?.detail || "Failed to load agents");
     } finally {
       setIsLoading(false);
     }
@@ -51,7 +57,9 @@ const AgentSelection: React.FC<AgentSelectionProps> = ({ onSelectAgent }) => {
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center space-y-4">
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto" />
-          <h2 className="text-xl font-semibold text-slate-900">Failed to Load Agents</h2>
+          <h2 className="text-xl font-semibold text-slate-900">
+            Failed to Load Agents
+          </h2>
           <p className="text-slate-600">{error}</p>
           <button
             onClick={loadAgents}
@@ -75,17 +83,20 @@ const AgentSelection: React.FC<AgentSelectionProps> = ({ onSelectAgent }) => {
             </h1>
           </div>
           <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-            Select an AI agent to start your conversation. Each agent has unique capabilities
-            powered by Azure Foundry.
+            Select an AI agent to start your conversation. Each agent has unique
+            capabilities powered by Azure Foundry.
           </p>
         </div>
 
         {agents.length === 0 ? (
           <div className="bg-white rounded-lg shadow-md p-12 text-center">
             <Bot className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-slate-900 mb-2">No Agents Available</h3>
+            <h3 className="text-xl font-semibold text-slate-900 mb-2">
+              No Agents Available
+            </h3>
             <p className="text-slate-600">
-              No AI agents are currently configured in your Azure Foundry project.
+              No AI agents are currently configured in your Azure Foundry
+              project.
             </p>
           </div>
         ) : (
@@ -95,7 +106,7 @@ const AgentSelection: React.FC<AgentSelectionProps> = ({ onSelectAgent }) => {
                 key={agent.id}
                 onClick={() => handleSelectAgent(agent)}
                 className={`bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden group ${
-                  selectedAgentId === agent.id ? 'ring-2 ring-blue-600' : ''
+                  selectedAgentId === agent.id ? "ring-2 ring-blue-600" : ""
                 }`}
               >
                 <div className="p-6 space-y-4">
@@ -111,26 +122,36 @@ const AgentSelection: React.FC<AgentSelectionProps> = ({ onSelectAgent }) => {
                       {agent.name}
                     </h3>
                     <p className="text-slate-600 text-sm line-clamp-3">
-                      {agent.description || 'An intelligent AI assistant ready to help you.'}
+                      {agent.description ||
+                        "An intelligent AI assistant ready to help you."}
                     </p>
+                    {agent.capabilities?.deployment_model_name && (
+                      <p className="text-sm text-slate-700 font-medium mt-2">
+                        Model:{" "}
+                        <span className="text-blue-600">
+                          {agent.capabilities.deployment_model_name}
+                        </span>
+                      </p>
+                    )}
                   </div>
 
-                  {agent.capabilities && Object.keys(agent.capabilities).length > 0 && (
-                    <div className="pt-4 border-t border-slate-100">
-                      <div className="flex flex-wrap gap-2">
-                        {Object.entries(agent.capabilities)
-                          .slice(0, 3)
-                          .map(([key]) => (
-                            <span
-                              key={key}
-                              className="px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-full"
-                            >
-                              {key.replace(/_/g, ' ')}
-                            </span>
-                          ))}
+                  {agent.capabilities &&
+                    Object.keys(agent.capabilities).length > 0 && (
+                      <div className="pt-4 border-t border-slate-100">
+                        <div className="flex flex-wrap gap-2">
+                          {Object.entries(agent.capabilities)
+                            .slice(0, 3)
+                            .map(([key]) => (
+                              <span
+                                key={key}
+                                className="px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-full"
+                              >
+                                {key.replace(/_/g, " ")}
+                              </span>
+                            ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
                   <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg transition-colors font-medium">
                     Start Chatting

@@ -279,7 +279,19 @@ async def get_mcp_context(
     # Validate token
     token_claims = await auth_handler.validate_token(token)
 
-    # Create MCP context
-    mcp_context = auth_handler.create_mcp_context(token, token_claims)
+    # Get user from database to ensure we have accurate email
+    user = await auth_handler.get_or_create_user(token_claims)
+
+    # Create MCP context with user info from both token and database
+    mcp_context = {
+        "oauth_token": token,
+        "user_identity": {
+            "azure_id": user.azure_id,
+            "email": user.email,  # Use email from database (more reliable)
+            "name": user.name,
+        },
+        "mcp_enabled": settings.MCP_ENABLED,
+        "timestamp": datetime.utcnow().isoformat()
+    }
 
     return mcp_context

@@ -1,5 +1,5 @@
-import axios, { AxiosInstance } from 'axios';
-import { apiConfig } from '../config/azureConfig';
+import axios, { AxiosInstance } from "axios";
+import { apiConfig } from "../config/azureConfig";
 import type {
   User,
   Agent,
@@ -10,7 +10,7 @@ import type {
   MessageResponse,
   SessionResponse,
   ChatHistoryResponse,
-} from '../types';
+} from "../types";
 
 class ApiClient {
   private client: AxiosInstance;
@@ -19,26 +19,26 @@ class ApiClient {
     this.client = axios.create({
       baseURL: apiConfig.baseUrl,
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
     });
   }
 
   setAuthToken(token: string) {
-    this.client.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    this.client.defaults.headers.common["Authorization"] = `Bearer ${token}`;
   }
 
   clearAuthToken() {
-    delete this.client.defaults.headers.common['Authorization'];
+    delete this.client.defaults.headers.common["Authorization"];
   }
 
   async getCurrentUser(): Promise<User> {
-    const response = await this.client.get<User>('/auth/me');
+    const response = await this.client.get<User>("/auth/me");
     return response.data;
   }
 
   async getAgents(): Promise<AgentResponse> {
-    const response = await this.client.get<AgentResponse>('/agents');
+    const response = await this.client.get<AgentResponse>("/agents");
     return response.data;
   }
 
@@ -48,22 +48,27 @@ class ApiClient {
   }
 
   async createSession(request: CreateSessionRequest): Promise<SessionResponse> {
-    const response = await this.client.post<SessionResponse>('/sessions', request);
+    const response = await this.client.post<SessionResponse>(
+      "/sessions",
+      request
+    );
     return response.data;
   }
 
   async getUserSessions(): Promise<ChatSession[]> {
-    const response = await this.client.get<ChatSession[]>('/sessions');
+    const response = await this.client.get<ChatSession[]>("/sessions");
     return response.data;
   }
 
   async getSessionHistory(sessionId: string): Promise<ChatHistoryResponse> {
-    const response = await this.client.get<ChatHistoryResponse>(`/sessions/${sessionId}`);
+    const response = await this.client.get<ChatHistoryResponse>(
+      `/sessions/${sessionId}`
+    );
     return response.data;
   }
 
   async sendMessage(request: SendMessageRequest): Promise<MessageResponse> {
-    const response = await this.client.post<MessageResponse>('/chat', request);
+    const response = await this.client.post<MessageResponse>("/chat", request);
     return response.data;
   }
 
@@ -72,7 +77,12 @@ class ApiClient {
   }
 
   async healthCheck(): Promise<any> {
-    const response = await this.client.get('/health');
+    const response = await this.client.get("/health");
+    return response.data;
+  }
+
+  async getMcpConfig(): Promise<any> {
+    const response = await this.client.get("/mcp-config");
     return response.data;
   }
 }
