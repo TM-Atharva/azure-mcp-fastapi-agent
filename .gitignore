@@ -1,0 +1,94 @@
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.env
+
+
+# ===============================================
+# A. REACT / NODE.JS (Frontend)
+# Files typically created by Node/React tooling
+# ===============================================
+
+# Dependencies
+/node_modules
+/package-lock.json # unless you explicitly want to commit it
+/npm-debug.log*
+/yarn-error.log
+
+# Build/Artifacts
+/build
+/dist
+/out
+.cache
+.env # Sensitive environment variables
+
+# OS / Editor Files
+.DS_Store
+.vscode/ # VS Code settings, unless shared
+*.sublime-workspace
+
+
+# ===============================================
+# B. PYTHON / FASTAPI (Backend - located in /backend)
+# Files specific to Python virtual environments,
+# build artifacts, and FastAPI/uvicorn.
+# ===============================================
+
+# 1. Virtual Environment
+# Ignores all common virtual environment directories
+/backend/.venv
+/backend/venv
+/backend/env
+
+# 2. Bytecode and Python C extensions
+__pycache__/
+*.pyc
+*.pyd
+*.so
+*.egg
+.tox/
+
+# 3. Development/Testing Artifacts
+# Coverage analysis:
+.coverage
+/htmlcov/
+
+# Python packaging:
+/dist/
+/build/
+
+# 4. FastAPI/Uvicorn/Environment Files
+# Database files (common for local development)
+/backend/*.sqlite
+/backend/*.db
+.env # Environment variables inside the backend folder
+
+# ===============================================
+# C. GLOBAL SETTINGS & MISC
+# ===============================================
+
+# IDE specific files
+.idea/ # PyCharm, IntelliJ
+.history # VS Code Local History
+
+# Deployment logs
+*.log
