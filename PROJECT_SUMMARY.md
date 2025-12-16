@@ -9,18 +9,28 @@ A production-ready, full-stack chatbot application featuring Azure Entra ID auth
 ### Authentication & Security
 
 ✅ **Azure Entra ID OAuth 2.0**
+
 - Popup-based authentication flow
 - JWT token validation with JWKS
 - Automatic token refresh
 - Secure session management
 
 ✅ **OAuth Identity Passthrough (MCP)**
+
 - User context propagation to AI agents
 - Maintains user identity throughout conversation
 - Enables agents to access user-specific resources
 - Complete audit trail with user information
 
+✅ **Role-Based Access Control (RBAC)** ⭐ NEW
+
+- Automatic role assignment based on email/Azure AD groups
+- Agent visibility filtering by user role
+- Roles: admin, analyst, user, guest
+- Customizable role and permission mappings
+
 ✅ **Database Security**
+
 - Row Level Security (RLS) on all tables
 - User-scoped data access policies
 - Service account isolation
@@ -29,12 +39,22 @@ A production-ready, full-stack chatbot application featuring Azure Entra ID auth
 ### AI Integration
 
 ✅ **Azure Foundry Integration**
+
 - Dynamic agent discovery
 - Automatic agent synchronization
 - Multi-agent support
 - Agent capability metadata
 
+✅ **RAG (Retrieval-Augmented Generation)** ⭐ NEW
+
+- Azure AI Search integration for document retrieval
+- SharePoint MCP connector with OAuth passthrough
+- Permission-aware searches (users see only authorized docs)
+- Multi-source knowledge base search
+- OAuth consent flow for SharePoint access
+
 ✅ **Conversation Management**
+
 - Session-based chat history
 - Context-aware conversations
 - Message metadata support
@@ -43,12 +63,14 @@ A production-ready, full-stack chatbot application featuring Azure Entra ID auth
 ### User Interface
 
 ✅ **Mobile-Responsive Design**
+
 - Optimized for mobile, tablet, and desktop
 - Touch-friendly interactions
 - Responsive navigation
 - Adaptive layouts
 
 ✅ **Modern UI/UX**
+
 - Clean, professional interface
 - Gradient backgrounds
 - Smooth animations
@@ -56,6 +78,7 @@ A production-ready, full-stack chatbot application featuring Azure Entra ID auth
 - Toast notifications
 
 ✅ **Accessibility**
+
 - Semantic HTML
 - ARIA labels
 - Keyboard navigation
@@ -65,35 +88,35 @@ A production-ready, full-stack chatbot application featuring Azure Entra ID auth
 
 ### Frontend
 
-| Technology | Version | Purpose |
-|------------|---------|---------|
-| React | 18.3.1 | UI framework |
-| TypeScript | 5.5.3 | Type safety |
-| Vite | 5.4.2 | Build tool |
-| Tailwind CSS | 3.4.1 | Styling |
-| MSAL Browser | Latest | Azure authentication |
-| Axios | Latest | HTTP client |
-| Lucide React | 0.344.0 | Icons |
+| Technology   | Version | Purpose              |
+| ------------ | ------- | -------------------- |
+| React        | 18.3.1  | UI framework         |
+| TypeScript   | 5.5.3   | Type safety          |
+| Vite         | 5.4.2   | Build tool           |
+| Tailwind CSS | 3.4.1   | Styling              |
+| MSAL Browser | Latest  | Azure authentication |
+| Axios        | Latest  | HTTP client          |
+| Lucide React | 0.344.0 | Icons                |
 
 ### Backend
 
-| Technology | Version | Purpose |
-|------------|---------|---------|
-| FastAPI | 0.115.0 | REST API framework |
-| Uvicorn | 0.32.0 | ASGI server |
-| Python MSAL | 1.31.0 | Token validation |
-| Azure Identity | 1.19.0 | Azure SDK |
+| Technology        | Version | Purpose             |
+| ----------------- | ------- | ------------------- |
+| FastAPI           | 0.115.0 | REST API framework  |
+| Uvicorn           | 0.32.0  | ASGI server         |
+| Python MSAL       | 1.31.0  | Token validation    |
+| Azure Identity    | 1.19.0  | Azure SDK           |
 | Azure AI Projects | 1.0.0b3 | Foundry integration |
-| Supabase | 2.9.1 | Database client |
-| Python Jose | 3.3.0 | JWT handling |
+| Supabase          | 2.9.1   | Database client     |
+| Python Jose       | 3.3.0   | JWT handling        |
 
 ### Infrastructure
 
-| Service | Purpose |
-|---------|---------|
-| Supabase | PostgreSQL database with RLS |
-| Azure Entra ID | Identity management |
-| Azure Foundry | AI agent platform |
+| Service        | Purpose                      |
+| -------------- | ---------------------------- |
+| Supabase       | PostgreSQL database with RLS |
+| Azure Entra ID | Identity management          |
+| Azure Foundry  | AI agent platform            |
 
 ## Project Structure
 
@@ -138,16 +161,19 @@ azure-chatbot/
 ### Tables
 
 1. **users**
+
    - Stores Azure AD user profiles
    - Auto-created on first login
    - Last login tracking
 
 2. **agents**
+
    - Synced from Azure Foundry
    - Capability metadata
    - Active status tracking
 
 3. **chat_sessions**
+
    - User-agent conversations
    - Session metadata
    - Active status tracking
@@ -160,6 +186,7 @@ azure-chatbot/
 ### Security
 
 All tables protected by Row Level Security (RLS):
+
 - Users can only access their own data
 - Agents viewable by all authenticated users
 - Sessions and messages scoped to owner
@@ -167,22 +194,27 @@ All tables protected by Row Level Security (RLS):
 ## API Endpoints
 
 ### Authentication
+
 - `GET /api/auth/me` - Current user profile
 
 ### Agents
+
 - `GET /api/agents` - List agents
 - `GET /api/agents/{id}` - Get agent details
 
 ### Sessions
+
 - `POST /api/sessions` - Create session
 - `GET /api/sessions` - List user sessions
 - `GET /api/sessions/{id}` - Get session with history
 - `DELETE /api/sessions/{id}` - Delete session
 
 ### Chat
+
 - `POST /api/chat` - Send message (with MCP)
 
 ### Health
+
 - `GET /` - Basic health check
 - `GET /api/health` - Detailed status
 
@@ -193,20 +225,24 @@ All tables protected by Row Level Security (RLS):
 The application implements a comprehensive MCP pattern:
 
 1. **Token Reception**
+
    - Frontend includes Azure AD token in Authorization header
    - Backend receives and validates token
 
 2. **Token Validation**
+
    - Signature verification with JWKS
    - Expiration check
    - Audience and issuer validation
 
 3. **MCP Context Creation**
+
    - Extract user identity from token
    - Create context object with token and identity
    - Include timestamp for audit
 
 4. **Agent Communication**
+
    - Pass MCP context to Azure Foundry
    - Agent uses user's token for authorization
    - Maintain user identity in agent calls
@@ -262,6 +298,7 @@ uvicorn main:app --reload         # Auto-reload mode
 ### Backend
 
 1. Deploy to:
+
    - Azure App Service
    - AWS Elastic Beanstalk
    - Google Cloud Run
@@ -349,12 +386,12 @@ DEBUG=                          # Debug mode (true/false)
 
 ## Documentation
 
-| Document | Description |
-|----------|-------------|
-| README.md | Complete documentation |
-| SETUP.md | Quick setup guide |
-| backend/README.md | Backend API documentation |
-| PROJECT_SUMMARY.md | This overview |
+| Document           | Description               |
+| ------------------ | ------------------------- |
+| README.md          | Complete documentation    |
+| SETUP.md           | Quick setup guide         |
+| backend/README.md  | Backend API documentation |
+| PROJECT_SUMMARY.md | This overview             |
 
 ## Performance
 

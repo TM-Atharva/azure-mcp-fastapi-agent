@@ -85,6 +85,34 @@ class ApiClient {
     const response = await this.client.get("/mcp-config");
     return response.data;
   }
+
+  async getUserRoles(): Promise<any> {
+    const response = await this.client.get("/user-roles");
+    return response.data;
+  }
+
+  async getRagConfig(): Promise<any> {
+    const response = await this.client.get("/rag/config");
+    return response.data;
+  }
+
+  async searchKnowledgeBase(
+    query: string,
+    sources: string[] = ["ai_search", "sharepoint"],
+    top: number = 5
+  ): Promise<any> {
+    const response = await this.client.post("/rag/search", null, {
+      params: { query, sources: sources.join(","), top },
+    });
+    return response.data;
+  }
+
+  async requestRagConsent(source: string): Promise<any> {
+    const response = await this.client.post("/rag/consent", null, {
+      params: { source },
+    });
+    return response.data;
+  }
 }
 
 export const apiClient = new ApiClient();

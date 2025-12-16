@@ -51,6 +51,15 @@ class Settings(BaseSettings):
     # OAuth Identity Passthrough (MCP) Settings
     MCP_ENABLED: bool = True
 
+    # RAG Integration Settings
+    AZURE_AI_SEARCH_ENDPOINT: Optional[str] = None
+    AZURE_AI_SEARCH_KEY: Optional[str] = None
+    AZURE_AI_SEARCH_INDEX: str = "documents"
+    
+    # SharePoint RAG Settings
+    SHAREPOINT_SITE_URL: Optional[str] = None
+    SHAREPOINT_ENABLED: bool = False
+
     # CORS Settings
     CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
 

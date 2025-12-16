@@ -2,21 +2,38 @@
 
 A comprehensive, production-ready chatbot application with Azure Entra ID authentication, Azure Foundry integration, and OAuth Identity Passthrough (MCP). Features a mobile-responsive React frontend and FastAPI backend.
 
+## ⭐ Phase 1 Features (NEW)
+
+**Just Added:**
+
+- **RBAC + Agent Visibility**: Users see only agents they have permission to access
+- **RAG Integration**: Azure AI Search and SharePoint knowledge base
+- **OAuth Consent Flow**: Enhanced permissions for SharePoint access
+
+📖 **[Read Phase 1 Documentation →](PHASE1_README.md)**
+
+---
+
 ## Features
 
 ### Authentication & Security
+
 - **Azure Entra ID OAuth 2.0**: Enterprise-grade authentication
 - **OAuth Identity Passthrough (MCP)**: Seamless user context propagation to AI agents
+- **RBAC (Role-Based Access Control)**: ⭐ NEW - Filter agents by user role
 - **Secure Token Validation**: JWT validation with JWKS
-- **Row Level Security**: Database-level security with Supabase RLS
+- **Row Level Security**: Database-level security with Azure Table Storage
 
 ### AI Integration
+
 - **Azure Foundry Integration**: Dynamic agent discovery and management
+- **RAG (Retrieval-Augmented Generation)**: ⭐ NEW - Azure AI Search + SharePoint
 - **Multi-Agent Support**: Chat with multiple specialized AI agents
 - **Context-Aware Conversations**: Full conversation history maintained
 - **Real-Time Responses**: Responsive chat interface with typing indicators
 
 ### User Experience
+
 - **Mobile-Responsive Design**: Optimized for mobile, tablet, and desktop
 - **Modern UI**: Clean, professional interface with Tailwind CSS
 - **Session Management**: Create, view, and delete chat sessions
@@ -25,6 +42,7 @@ A comprehensive, production-ready chatbot application with Azure Entra ID authen
 ## Technology Stack
 
 ### Frontend
+
 - **React 18** with TypeScript
 - **Vite** for fast development and building
 - **Tailwind CSS** for styling
@@ -33,6 +51,7 @@ A comprehensive, production-ready chatbot application with Azure Entra ID authen
 - **Lucide React** for icons
 
 ### Backend
+
 - **FastAPI** for REST API
 - **Python 3.11+**
 - **MSAL** for token validation
@@ -40,6 +59,7 @@ A comprehensive, production-ready chatbot application with Azure Entra ID authen
 - **Supabase** for database and storage
 
 ### Infrastructure
+
 - **Supabase**: PostgreSQL database with RLS
 - **Azure Entra ID**: Identity and access management
 - **Azure Foundry**: AI agent platform
@@ -113,6 +133,7 @@ Agent response → Backend → Frontend → User
 #### Note Required Values
 
 Copy these values for configuration:
+
 - **Application (client) ID**: Found on Overview page
 - **Directory (tenant) ID**: Found on Overview page
 - **Client secret**: Copied from previous step
@@ -215,6 +236,7 @@ python main.py
 The backend will run on `http://localhost:8000`
 
 API documentation available at:
+
 - Swagger UI: `http://localhost:8000/api/docs`
 - ReDoc: `http://localhost:8000/api/redoc`
 
@@ -237,22 +259,27 @@ The frontend will run on `http://localhost:5173`
 ## API Endpoints
 
 ### Authentication
+
 - `GET /api/auth/me` - Get current user profile
 
 ### Agents
+
 - `GET /api/agents` - List all available agents
 - `GET /api/agents/{agent_id}` - Get specific agent
 
 ### Chat Sessions
+
 - `POST /api/sessions` - Create new chat session
 - `GET /api/sessions` - List user's sessions
 - `GET /api/sessions/{session_id}` - Get session with message history
 - `DELETE /api/sessions/{session_id}` - Delete session
 
 ### Messages
+
 - `POST /api/chat` - Send message and get response
 
 ### Health
+
 - `GET /` - Basic health check
 - `GET /api/health` - Detailed health check
 
@@ -277,15 +304,19 @@ The frontend will run on `http://localhost:5173`
 ## Database Schema
 
 ### Users Table
+
 Stores authenticated user information from Azure Entra ID
 
 ### Agents Table
+
 Stores AI agents synced from Azure Foundry
 
 ### Chat Sessions Table
+
 Tracks conversations between users and agents
 
 ### Chat Messages Table
+
 Stores all messages with role (user/assistant/system)
 
 All tables have Row Level Security (RLS) enabled with policies ensuring users can only access their own data.
@@ -344,17 +375,20 @@ project/
 ### Authentication Issues
 
 **Problem**: "Invalid token" or "Token has expired"
+
 - **Solution**: Ensure Azure AD app registration is configured correctly
 - Check that redirect URI matches exactly
 - Verify client ID and tenant ID are correct
 
 **Problem**: "Failed to fetch user profile"
+
 - **Solution**: Ensure `User.Read` scope is granted in Azure AD
 - Check that access token has required permissions
 
 ### Agent Loading Issues
 
 **Problem**: "Failed to load agents"
+
 - **Solution**: Verify Azure Foundry credentials are correct
 - Check that agents are published in Azure Foundry
 - Ensure API endpoint is accessible
@@ -362,6 +396,7 @@ project/
 ### Database Issues
 
 **Problem**: "Failed to create session" or "Access denied"
+
 - **Solution**: Verify Supabase URL and service key are correct
 - Check that RLS policies are properly configured
 - Ensure user exists in users table
@@ -369,6 +404,7 @@ project/
 ### Backend Connection Issues
 
 **Problem**: Frontend can't connect to backend
+
 - **Solution**: Ensure backend is running on port 8000
 - Check CORS settings in backend config
 - Verify `VITE_API_URL` is set correctly in frontend .env
@@ -378,6 +414,7 @@ project/
 ### Frontend Deployment
 
 1. Build the frontend:
+
    ```bash
    npm run build
    ```
@@ -422,6 +459,7 @@ MIT License - See LICENSE file for details
 ## Support
 
 For issues or questions:
+
 1. Check this documentation
 2. Review Azure AD and Azure Foundry documentation
 3. Check application logs for error details

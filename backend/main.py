@@ -41,6 +41,8 @@ from models import (
 from auth import get_current_user, get_mcp_context, auth_handler
 from azure_foundry import foundry_client
 from table_storage import table_storage
+from rbac import filter_agents_for_user, get_user_roles_from_profile
+from rag_integration import RAGService
 
 
 # Configure logging
@@ -77,6 +79,24 @@ async def startup_event():
     logger.info("Starting Azure Chatbot API...")
     logger.info(f"CORS Origins: {settings.cors_origins_list}")
     logger.info(f"MCP Enabled: {settings.MCP_ENABLED}")
+    
+    # Initialize RAG service if configured
+    global rag_service
+    rag_service = RAGService(
+        ai_search_endpoint=settings.AZURE_AI_SEARCH_ENDPOINT,
+        ai_search_key=settings.AZURE_AI_SEARCH_KEY,
+        sharepoint_tenant_id=settings.AZURE_TENANT_ID if settings.SHAREPOINT_ENABLED else None,
+        sharepoint_site_url=settings.SHAREPOINT_SITE_URL
+    )
+    
+    if settings.AZURE_AI_SEARCH_ENDPOINT:
+        logger.info("✓ RAG: Azure AI Search enabled")
+    if settings.SHAREPOINT_ENABLED:
+        logger.info("✓ RAG: SharePoint enabled")
+
+
+# Global RAG service instance
+rag_service: RAGService = None
 
 
 @app.on_event("shutdown")
@@ -173,6 +193,41 @@ async def get_user_context(current_user: UserProfile = Depends(get_current_user)
     }
 
 
+@app.get("/api/user-roles")
+async def get_user_roles(current_user: UserProfile = Depends(get_current_user)):
+    """
+    Get current user's assigned roles for RBAC.
+    
+    This endpoint returns the roles assigned to the authenticated user,
+    which determine which agents they can access.
+    
+    Returns:
+        Dict with user roles and permissions
+    """
+    logger.info(f"User roles requested for: {current_user.email}")
+    
+    user_profile = {
+        "email": current_user.email,
+        "azure_data": {}  # Can be enhanced with Azure AD groups
+    }
+    
+    roles = get_user_roles_from_profile(user_profile)
+    roles_list = [role.value for role in roles]
+    
+    return {
+        "success": True,
+        "user_email": current_user.email,
+        "roles": roles_list,
+        "description": {
+            "admin": "Full access to all agents",
+            "analyst": "Access to data analysis and reporting agents",
+            "user": "Access to basic chat agents",
+            "guest": "Limited access to public agents"
+        },
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+
 # Authentication Endpoints
 @app.get("/api/auth/me", response_model=UserProfile)
 async def get_current_user_profile(
@@ -200,24 +255,44 @@ async def list_agents(
     current_user: UserProfile = Depends(get_current_user)
 ):
     """
-    Get list of available Azure Foundry agents.
+    Get list of available Azure Foundry agents filtered by user's role.
 
     This endpoint retrieves all available agents from Azure Foundry,
-    synchronizes them with the local database, and returns them to the client.
+    synchronizes them with the local database, and filters them based
+    on the user's assigned roles (RBAC).
 
     Headers:
         Authorization: Bearer <azure_ad_access_token>
 
     Returns:
-        AgentResponse: List of available agents
+        AgentResponse: List of agents accessible to the user
     """
     try:
         logger.info(f"Fetching agents for user: {current_user.email}")
-        agents = await foundry_client.list_agents()
+        
+        # Get all agents from Azure Foundry
+        all_agents = await foundry_client.list_agents()
+        
+        # Convert Agent models to dicts for filtering
+        agents_dicts = [agent.model_dump() if hasattr(agent, 'model_dump') else agent.__dict__ for agent in all_agents]
+        
+        # Filter agents based on user's roles (RBAC)
+        user_profile = {
+            "email": current_user.email,
+            "azure_data": {}  # Can be enhanced with Azure AD groups
+        }
+        filtered_agents_dicts = filter_agents_for_user(agents_dicts, user_profile)
+        
+        # Convert back to Agent models
+        from models import Agent as AgentModel
+        filtered_agents = [AgentModel(**agent_dict) if isinstance(agent_dict, dict) else agent_dict 
+                          for agent_dict in filtered_agents_dicts]
+        
+        logger.info(f"Filtered {len(all_agents)} agents to {len(filtered_agents)} for user {current_user.email}")
 
         return AgentResponse(
-            agents=agents,
-            count=len(agents)
+            agents=filtered_agents,
+            count=len(filtered_agents)
         )
 
     except Exception as e:
@@ -761,6 +836,157 @@ async def delete_session(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to delete session: {str(e)}"
         )
+
+
+# RAG (Retrieval-Augmented Generation) Endpoints
+@app.post("/api/rag/search")
+async def search_knowledge_base(
+    query: str,
+    sources: List[str] = ["ai_search", "sharepoint"],
+    top: int = 5,
+    current_user: UserProfile = Depends(get_current_user),
+    mcp_context: Dict[str, Any] = Depends(get_mcp_context)
+):
+    """
+    Search knowledge base (Azure AI Search and/or SharePoint) with user context.
+    
+    This endpoint implements RAG by searching across configured knowledge sources
+    using the user's authentication context for permission-aware retrieval.
+    
+    Args:
+        query: Search query text
+        sources: List of sources to search (ai_search, sharepoint)
+        top: Number of results per source
+    
+    Headers:
+        Authorization: Bearer <azure_ad_access_token>
+    
+    Returns:
+        Combined search results from all sources
+    """
+    try:
+        if not rag_service:
+            raise HTTPException(
+                status_code=status.HTTP_501_NOT_IMPLEMENTED,
+                detail="RAG service not configured. Please set AZURE_AI_SEARCH_ENDPOINT or enable SharePoint."
+            )
+        
+        logger.info(f"RAG search for user {current_user.email}: {query}")
+        
+        # Get user's OAuth token for SharePoint access
+        user_token = mcp_context.get("oauth_token")
+        
+        results = await rag_service.search_knowledge_base(
+            query=query,
+            user_email=current_user.email,
+            user_token=user_token,
+            sources=sources,
+            top=top
+        )
+        
+        return results
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"RAG search error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Knowledge base search failed: {str(e)}"
+        )
+
+
+@app.get("/api/rag/config")
+async def get_rag_config():
+    """
+    Get RAG configuration status.
+    
+    Returns:
+        Dict with RAG configuration details and enabled sources
+    """
+    return {
+        "rag_enabled": rag_service is not None,
+        "sources": {
+            "azure_ai_search": {
+                "enabled": settings.AZURE_AI_SEARCH_ENDPOINT is not None,
+                "endpoint": settings.AZURE_AI_SEARCH_ENDPOINT,
+                "index": settings.AZURE_AI_SEARCH_INDEX if settings.AZURE_AI_SEARCH_ENDPOINT else None
+            },
+            "sharepoint": {
+                "enabled": settings.SHAREPOINT_ENABLED,
+                "site_url": settings.SHAREPOINT_SITE_URL if settings.SHAREPOINT_ENABLED else None
+            }
+        },
+        "oauth_passthrough": settings.MCP_ENABLED,
+        "description": "RAG integration with Azure AI Search and SharePoint using OAuth Identity Passthrough"
+    }
+
+
+@app.post("/api/rag/consent")
+async def request_rag_consent(
+    source: str,
+    current_user: UserProfile = Depends(get_current_user)
+):
+    """
+    Request additional OAuth consent for RAG sources.
+    
+    This endpoint returns the OAuth consent URL for accessing
+    specific RAG sources like SharePoint that require additional permissions.
+    
+    Args:
+        source: RAG source (sharepoint, onedrive, etc.)
+    
+    Returns:
+        Dict with consent URL and required scopes
+    """
+    consent_configs = {
+        "sharepoint": {
+            "scopes": [
+                "Sites.Read.All",
+                "Files.Read.All",
+                "User.Read"
+            ],
+            "resource": "Microsoft SharePoint"
+        },
+        "onedrive": {
+            "scopes": [
+                "Files.Read.All",
+                "User.Read"
+            ],
+            "resource": "Microsoft OneDrive"
+        }
+    }
+    
+    if source not in consent_configs:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown RAG source: {source}. Available: {list(consent_configs.keys())}"
+        )
+    
+    config = consent_configs[source]
+    scopes_str = " ".join(config["scopes"])
+    
+    # Build OAuth consent URL
+    consent_url = (
+        f"https://login.microsoftonline.com/{settings.AZURE_TENANT_ID}/oauth2/v2.0/authorize"
+        f"?client_id={settings.AZURE_CLIENT_ID}"
+        f"&response_type=code"
+        f"&redirect_uri=http://localhost:5173"  # Update for production
+        f"&response_mode=query"
+        f"&scope={scopes_str}"
+        f"&state={source}"
+    )
+    
+    return {
+        "source": source,
+        "resource": config["resource"],
+        "scopes": config["scopes"],
+        "consent_url": consent_url,
+        "instructions": (
+            f"To access {config['resource']}, you need to grant additional permissions. "
+            f"Please visit the consent_url to authorize access."
+        )
+    }
 
 
 if __name__ == "__main__":
