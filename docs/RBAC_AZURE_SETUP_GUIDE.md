@@ -25,12 +25,12 @@ This guide provides step-by-step instructions to configure **Role-Based Access C
 
 ### Roles Overview
 
-| Role | Access Level | Agent Types |
-|------|-------------|-------------|
-| **Admin** | Full access | All agents |
+| Role        | Access Level | Agent Types                       |
+| ----------- | ------------ | --------------------------------- |
+| **Admin**   | Full access  | All agents                        |
 | **Analyst** | Data-focused | Data, analytics, reporting agents |
-| **User** | Standard | Chat, assistant, general agents |
-| **Guest** | Limited | Public agents only |
+| **User**    | Standard     | Chat, assistant, general agents   |
+| **Guest**   | Limited      | Public agents only                |
 
 ### Step 1: Create Azure AD Security Groups
 
@@ -99,11 +99,13 @@ This guide provides step-by-step instructions to configure **Role-Based Access C
 #### 1.6 Note Group Object IDs
 
 For each group:
+
 1. Click on the group name
 2. Click **"Properties"**
 3. Copy the **"Object ID"** - you'll need this for configuration
 
 Example:
+
 ```
 AI-Admins: 12345678-1234-1234-1234-123456789012
 AI-Analysts: 23456789-2345-2345-2345-234567890123
@@ -203,13 +205,13 @@ Update `backend/config.py`:
 ```python
 class Settings(BaseSettings):
     # ... existing settings ...
-    
+
     # RBAC - Azure AD Groups
     AZURE_AD_GROUP_ADMINS: Optional[str] = None
     AZURE_AD_GROUP_ANALYSTS: Optional[str] = None
     AZURE_AD_GROUP_USERS: Optional[str] = None
     AZURE_AD_GROUP_GUESTS: Optional[str] = None
-    
+
     class Config:
         env_file = ".env"
 ```
@@ -227,46 +229,46 @@ def get_user_roles(user_email: str, azure_user_data: dict = None) -> Set[UserRol
     Determine user roles based on Azure AD group membership.
     """
     roles = {UserRole.USER}  # Default role
-    
+
     # Get user's group memberships from token
     user_groups = []
     if azure_user_data:
         user_groups = azure_user_data.get("groups", [])
-    
+
     # Map Azure AD groups to roles
     if settings.AZURE_AD_GROUP_ADMINS in user_groups:
         roles.add(UserRole.ADMIN)
         logger.info(f"User {user_email} assigned ADMIN role (Azure AD group)")
-    
+
     if settings.AZURE_AD_GROUP_ANALYSTS in user_groups:
         roles.add(UserRole.ANALYST)
         logger.info(f"User {user_email} assigned ANALYST role (Azure AD group)")
-    
+
     if settings.AZURE_AD_GROUP_USERS in user_groups:
         roles.add(UserRole.USER)
         logger.info(f"User {user_email} assigned USER role (Azure AD group)")
-    
+
     if settings.AZURE_AD_GROUP_GUESTS in user_groups:
         roles.add(UserRole.GUEST)
         logger.info(f"User {user_email} assigned GUEST role (Azure AD group)")
-    
+
     # Fallback to email-based detection if no groups found
     if len(roles) == 1 and UserRole.USER in roles:
         # Use existing email-based logic as fallback
         admin_domains = ["admin.com", "leadership.com"]
         admin_emails = []
-        
+
         email_domain = user_email.split("@")[-1] if "@" in user_email else ""
-        
+
         if email_domain in admin_domains or user_email in admin_emails:
             roles.add(UserRole.ADMIN)
             logger.info(f"User {user_email} assigned ADMIN role (email domain)")
-        
+
         analyst_keywords = ["analyst", "data", "bi", "analytics"]
         if any(keyword in user_email.lower() for keyword in analyst_keywords):
             roles.add(UserRole.ANALYST)
             logger.info(f"User {user_email} assigned ANALYST role (email keyword)")
-    
+
     logger.info(f"Final roles for {user_email}: {[r.value for r in roles]}")
     return roles
 ```
@@ -282,10 +284,10 @@ async def validate_token(self, token: str) -> Dict[str, Any]:
     """
     try:
         # ... existing validation code ...
-        
+
         # Decode and verify token
         signing_key = self.jwks_client.get_signing_key_from_jwt(token)
-        
+
         payload = jwt.decode(
             token,
             signing_key.key,
@@ -294,18 +296,18 @@ async def validate_token(self, token: str) -> Dict[str, Any]:
             issuer=issuer,
             options={"verify_exp": True}
         )
-        
+
         # Extract group memberships
         groups = payload.get("groups", [])
-        
+
         logger.info(f"Token validated for user: {payload.get('email', 'unknown')}")
         logger.info(f"User groups: {groups}")
-        
+
         # Add groups to payload for RBAC
         payload["groups"] = groups
-        
+
         return payload
-        
+
     except Exception as e:
         logger.error(f"Token validation failed: {str(e)}")
         raise HTTPException(
@@ -323,7 +325,7 @@ async def get_current_user(
     """Get current user from token with group membership."""
     token = credentials.credentials
     claims = await auth_handler.validate_token(token)
-    
+
     # Get or create user
     user = await asyncio.to_thread(
         table_storage.get_or_create_user,
@@ -331,11 +333,11 @@ async def get_current_user(
         email=claims.get("email") or claims.get("upn"),
         name=claims.get("name", "Unknown User")
     )
-    
+
     # Add groups to user profile for RBAC
     user_profile = UserProfile(**user)
     user_profile.azure_data = {"groups": claims.get("groups", [])}
-    
+
     return user_profile
 ```
 
@@ -398,10 +400,10 @@ if "access_token" in result:
     import jwt
     token = result["access_token"]
     decoded = jwt.decode(token, options={"verify_signature": False})
-    
+
     print("User:", decoded.get("email") or decoded.get("upn"))
     print("Groups:", decoded.get("groups", []))
-    
+
     if "groups" not in decoded:
         print("\n⚠️  WARNING: No groups in token!")
         print("Make sure 'Group claims' are configured in App Registration")
@@ -420,6 +422,7 @@ curl http://localhost:8000/api/user-roles \
 ```
 
 Expected response:
+
 ```json
 {
   "success": true,
@@ -439,6 +442,7 @@ Expected response:
 Test with different users:
 
 **Admin user:**
+
 ```bash
 curl http://localhost:8000/api/agents \
   -H "Authorization: Bearer ADMIN_TOKEN"
@@ -447,6 +451,7 @@ curl http://localhost:8000/api/agents \
 ```
 
 **Analyst user:**
+
 ```bash
 curl http://localhost:8000/api/agents \
   -H "Authorization: Bearer ANALYST_TOKEN"
@@ -455,6 +460,7 @@ curl http://localhost:8000/api/agents \
 ```
 
 **Regular user:**
+
 ```bash
 curl http://localhost:8000/api/agents \
   -H "Authorization: Bearer USER_TOKEN"
@@ -467,6 +473,7 @@ curl http://localhost:8000/api/agents \
 #### 3.1 Create Test Users
 
 Create test accounts in Azure AD:
+
 ```
 admin-test@yourdomain.com    → Add to AI-Admins group
 analyst-test@yourdomain.com  → Add to AI-Analysts group
@@ -477,6 +484,7 @@ guest-test@yourdomain.com    → Add to AI-Guests group
 #### 3.2 Test Login Flow
 
 For each test user:
+
 1. Log in to your application
 2. Check what agents they see
 3. Verify they can't access restricted agents
@@ -558,6 +566,7 @@ AI-All-Users (parent)
 ### Step 2: Check Application Logs
 
 Monitor your backend logs for:
+
 ```
 ✓ User roles assigned from Azure AD groups
 ✓ Agent filtering applied
@@ -567,6 +576,7 @@ Monitor your backend logs for:
 ### Step 3: Create Alerts (Optional)
 
 Set up alerts for:
+
 - Failed authorization attempts
 - Users with no group membership
 - Unexpected role assignments
@@ -578,6 +588,7 @@ Set up alerts for:
 ### Issue: Groups not in token
 
 **Solutions:**
+
 1. Verify token configuration includes group claims
 2. Check admin consent was granted for GroupMember.Read.All
 3. Ensure groupMembershipClaims is set to "SecurityGroup" in manifest
@@ -589,6 +600,7 @@ If user is in >200 groups, Azure AD returns a `groups:src1` claim instead.
 
 **Solution:**
 Use the Microsoft Graph API to fetch groups:
+
 ```python
 # Instead of reading groups from token
 groups_url = "https://graph.microsoft.com/v1.0/me/memberOf"
@@ -599,6 +611,7 @@ groups = [g["id"] for g in response.json()["value"]]
 ### Issue: User sees wrong agents
 
 **Solutions:**
+
 1. Check user's group membership in Azure AD
 2. Verify group IDs match in .env file
 3. Check logs for role assignment
@@ -607,6 +620,7 @@ groups = [g["id"] for g in response.json()["value"]]
 ### Issue: Guest users can't access
 
 **Solutions:**
+
 1. Verify guest users are in AI-Guests group
 2. Check guest user settings in Azure AD
 3. Ensure app allows guest users
@@ -657,7 +671,7 @@ groups = [g["id"] for g in response.json()["value"]]
 ✅ API endpoints return correct roles  
 ✅ Agent filtering works per role  
 ✅ Logs show role assignments  
-✅ Users see only authorized agents  
+✅ Users see only authorized agents
 
 ---
 
@@ -687,16 +701,19 @@ groups = [g["id"] for g in response.json()["value"]]
 ## Next Steps
 
 1. **Test with Real Users**
+
    - Deploy to test environment
    - Get feedback from different roles
    - Refine group assignments
 
 2. **Add More Granular Controls**
+
    - Agent-level permissions (beyond visibility)
    - Time-based access
    - Location-based restrictions
 
 3. **Integrate with Compliance Tools**
+
    - Export access logs
    - Generate compliance reports
    - Implement approval workflows

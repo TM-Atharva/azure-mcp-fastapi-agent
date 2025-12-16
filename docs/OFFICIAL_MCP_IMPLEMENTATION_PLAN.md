@@ -9,6 +9,7 @@ This guide provides step-by-step instructions to implement **official Microsoft 
 ## Current State vs Target State
 
 ### What You Have Now
+
 - ✅ User authentication with Azure Entra ID
 - ✅ JWT token validation
 - ✅ User context passed via headers
@@ -16,6 +17,7 @@ This guide provides step-by-step instructions to implement **official Microsoft 
 - ⚠️ Custom SharePoint RAG implementation
 
 ### What You Need (Official MCP)
+
 - ✅ User authentication with Azure Entra ID (keep)
 - 🔄 Use **Azure Agent SDK** instead of Chat Completions
 - ➕ Configure **MCP tools** in agents
@@ -51,19 +53,20 @@ This guide provides step-by-step instructions to implement **official Microsoft 
 3. **Display Name:** `SharePoint OAuth Connection`
 
 4. **OAuth Configuration:**
+
    ```
    Client ID: [Your Azure AD App Client ID]
    Client Secret: [Your Azure AD App Client Secret]
-   
-   Authorization URL: 
+
+   Authorization URL:
    https://login.microsoftonline.com/{YOUR_TENANT_ID}/oauth2/v2.0/authorize
-   
+
    Token URL:
    https://login.microsoftonline.com/{YOUR_TENANT_ID}/oauth2/v2.0/token
-   
+
    Refresh URL:
    https://login.microsoftonline.com/{YOUR_TENANT_ID}/oauth2/v2.0/token
-   
+
    Scopes:
    Sites.Read.All Files.Read.All User.Read offline_access
    ```
@@ -76,14 +79,15 @@ This guide provides step-by-step instructions to implement **official Microsoft 
 1. **Connection Type:** Select **"Custom OAuth"**
 2. **Connection Name:** `github-oauth`
 3. **OAuth Configuration:**
+
    ```
    Client ID: [Your GitHub OAuth App Client ID]
    Client Secret: [Your GitHub OAuth App Client Secret]
-   
+
    Authorization URL: https://github.com/login/oauth/authorize
    Token URL: https://github.com/login/oauth/access_token
    Refresh URL: https://github.com/login/oauth/access_token
-   
+
    Scopes: repo read:org read:user
    ```
 
@@ -92,16 +96,19 @@ This guide provides step-by-step instructions to implement **official Microsoft 
 #### 3.1 Deploy MCP Server (if custom)
 
 If using custom MCP server:
+
 1. Deploy your MCP server to Azure (App Service, Container Apps, etc.)
 2. Note the **Server URL** (e.g., `https://your-mcp-server.azurewebsites.net/mcp`)
 
 For Microsoft services (SharePoint, Graph):
+
 - Use Microsoft Graph MCP server: `https://graph.microsoft.com/mcp/`
 - Or use Microsoft's official MCP servers when available
 
 #### 3.2 Test MCP Server Endpoint
 
 Verify your MCP server is accessible:
+
 ```bash
 curl https://your-mcp-server.azurewebsites.net/mcp/health
 ```
@@ -121,19 +128,20 @@ curl https://your-mcp-server.azurewebsites.net/mcp/health
 3. Select **"MCP (Model Context Protocol)"**
 
 4. **MCP Tool Configuration:**
+
    ```
    Tool Name: sharepoint_search
    Tool Label: SharePoint Search
-   
+
    Server URL: https://graph.microsoft.com/mcp/
    Server Label: microsoft-graph
-   
+
    Connection: sharepoint-oauth (select from dropdown)
-   
+
    Require Approval: Never
    (or "Always" if you want user confirmation)
-   
-   Description: 
+
+   Description:
    Searches SharePoint sites and documents using the user's permissions.
    Returns only documents the user has access to.
    ```
@@ -143,6 +151,7 @@ curl https://your-mcp-server.azurewebsites.net/mcp/health
 #### 4.3 Configure Multiple MCP Tools (Optional)
 
 Repeat for other MCP servers:
+
 - GitHub: `https://github.com/mcp/` (if available)
 - Custom MCP servers you've deployed
 
@@ -214,24 +223,24 @@ logger = logging.getLogger(__name__)
 class AzureFoundryMCPClient:
     """
     Official MCP client using Azure Agent SDK.
-    
+
     This replaces direct Chat Completions API calls with
     proper Agent SDK usage including MCP tool support.
     """
-    
+
     def __init__(self):
         self.project_endpoint = settings.AZURE_FOUNDRY_ENDPOINT
         self.credential = DefaultAzureCredential()
-        
+
         # Initialize AI Project Client
         self.project_client = AIProjectClient(
             endpoint=self.project_endpoint,
             credential=self.credential
         )
-        
+
         logger.info("✓ Azure Foundry MCP Client initialized")
         logger.info(f"  Endpoint: {self.project_endpoint}")
-    
+
     async def create_thread_for_user(
         self,
         user_azure_id: str,
@@ -240,12 +249,12 @@ class AzureFoundryMCPClient:
     ) -> str:
         """
         Create an agent thread for a user.
-        
+
         Args:
             user_azure_id: User's Azure AD object ID
             user_email: User's email
             metadata: Optional thread metadata
-        
+
         Returns:
             Thread ID
         """
@@ -255,20 +264,20 @@ class AzureFoundryMCPClient:
                 "user_azure_id": user_azure_id,
                 "user_email": user_email
             })
-            
+
             # Create thread using asyncio.to_thread for sync SDK
             thread = await asyncio.to_thread(
                 self.project_client.agents.create_thread,
                 metadata=thread_metadata
             )
-            
+
             logger.info(f"Created thread {thread.id} for user {user_email}")
             return thread.id
-            
+
         except Exception as e:
             logger.error(f"Failed to create thread: {e}")
             raise
-    
+
     async def send_message_to_agent(
         self,
         agent_id: str,
@@ -280,13 +289,13 @@ class AzureFoundryMCPClient:
     ) -> Dict[str, Any]:
         """
         Send a message to an agent with MCP support.
-        
+
         This method:
         1. Adds user message to thread
         2. Runs the agent with user context
         3. Handles OAuth consent requests if needed
         4. Returns agent response
-        
+
         Args:
             agent_id: Agent ID
             thread_id: Thread ID
@@ -294,7 +303,7 @@ class AzureFoundryMCPClient:
             user_azure_id: User's Azure AD ID
             user_email: User's email
             user_oauth_token: Optional OAuth token for MCP servers
-        
+
         Returns:
             Dict with response and consent info if needed
         """
@@ -306,9 +315,9 @@ class AzureFoundryMCPClient:
                 role=AgentMessageRole.USER,
                 content=message
             )
-            
+
             logger.info(f"Added message to thread {thread_id}")
-            
+
             # Step 2: Create and run agent with user context
             run_options = {
                 "agent_id": agent_id,
@@ -318,31 +327,31 @@ class AzureFoundryMCPClient:
                     "user_email": user_email
                 }
             }
-            
+
             # If user has OAuth token, include it
             if user_oauth_token:
                 run_options["additional_instructions"] = (
                     f"User context: {user_email}\n"
                     f"OAuth token available for MCP tools."
                 )
-            
+
             run = await asyncio.to_thread(
                 self.project_client.agents.create_and_process_run,
                 **run_options
             )
-            
+
             logger.info(f"Run {run.id} status: {run.status}")
-            
+
             # Step 3: Check for OAuth consent request
             if run.status == "requires_action":
                 required_action = run.required_action
-                
+
                 if required_action.type == "oauth_consent":
                     # Foundry needs OAuth consent from user
                     consent_request = required_action.oauth_consent_request
-                    
+
                     logger.warning(f"OAuth consent required for {consent_request.provider}")
-                    
+
                     return {
                         "type": "oauth_consent_required",
                         "provider": consent_request.provider,
@@ -352,24 +361,24 @@ class AzureFoundryMCPClient:
                         "run_id": run.id,
                         "thread_id": thread_id
                     }
-            
+
             # Step 4: Get agent response messages
             messages = await asyncio.to_thread(
                 self.project_client.agents.list_messages,
                 thread_id=thread_id
             )
-            
+
             # Get the latest assistant message
             assistant_messages = [
-                msg for msg in messages.data 
+                msg for msg in messages.data
                 if msg.role == AgentMessageRole.ASSISTANT
             ]
-            
+
             if not assistant_messages:
                 raise Exception("No assistant response found")
-            
+
             latest_message = assistant_messages[0]
-            
+
             return {
                 "type": "message",
                 "content": latest_message.content[0].text.value,
@@ -377,11 +386,11 @@ class AzureFoundryMCPClient:
                 "run_id": run.id,
                 "thread_id": thread_id
             }
-            
+
         except Exception as e:
             logger.error(f"Failed to send message: {e}")
             raise
-    
+
     async def continue_after_consent(
         self,
         run_id: str,
@@ -389,11 +398,11 @@ class AzureFoundryMCPClient:
     ) -> Dict[str, Any]:
         """
         Continue agent run after user has provided OAuth consent.
-        
+
         Args:
             run_id: The run ID that required consent
             thread_id: Thread ID
-        
+
         Returns:
             Agent response
         """
@@ -405,7 +414,7 @@ class AzureFoundryMCPClient:
                 run_id=run_id,
                 tool_outputs=[]  # Empty, consent was provided
             )
-            
+
             # Wait for completion
             while run.status in ["in_progress", "queued"]:
                 await asyncio.sleep(1)
@@ -414,27 +423,27 @@ class AzureFoundryMCPClient:
                     thread_id=thread_id,
                     run_id=run_id
                 )
-            
+
             # Get response
             messages = await asyncio.to_thread(
                 self.project_client.agents.list_messages,
                 thread_id=thread_id
             )
-            
+
             assistant_messages = [
-                msg for msg in messages.data 
+                msg for msg in messages.data
                 if msg.role == AgentMessageRole.ASSISTANT
             ]
-            
+
             latest_message = assistant_messages[0]
-            
+
             return {
                 "type": "message",
                 "content": latest_message.content[0].text.value,
                 "message_id": latest_message.id,
                 "run_id": run.id
             }
-            
+
         except Exception as e:
             logger.error(f"Failed to continue after consent: {e}")
             raise
@@ -476,14 +485,14 @@ async def send_message_mcp(
                 user_azure_id=current_user.azure_id,
                 user_email=current_user.email
             )
-        
+
         # Get agent ID from session
         session = await table_storage.get_session_by_id(
             user_azure_id=current_user.azure_id,
             session_id=str(request.session_id)
         )
         agent_id = session.get("agent_azure_id")
-        
+
         # Send message
         response = await mcp_client.send_message_to_agent(
             agent_id=agent_id,
@@ -493,7 +502,7 @@ async def send_message_mcp(
             user_email=current_user.email,
             user_oauth_token=mcp_context.get("oauth_token")
         )
-        
+
         # Check if consent is required
         if response["type"] == "oauth_consent_required":
             # Return consent request to frontend
@@ -506,7 +515,7 @@ async def send_message_mcp(
                 "thread_id": response["thread_id"],
                 "message": response["message"]
             }
-        
+
         # Normal response
         return {
             "status": "success",
@@ -514,7 +523,7 @@ async def send_message_mcp(
             "message_id": response["message_id"],
             "thread_id": response["thread_id"]
         }
-        
+
     except Exception as e:
         logger.error(f"MCP chat error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -527,26 +536,26 @@ async def handle_consent_callback(
 ):
     """
     Handle OAuth consent callback from frontend.
-    
+
     After user consents in popup, frontend calls this endpoint
     to continue the agent run.
     """
     try:
         if not callback.consented:
             return {"status": "consent_denied"}
-        
+
         # Continue agent run with consent
         response = await mcp_client.continue_after_consent(
             run_id=callback.run_id,
             thread_id=callback.thread_id
         )
-        
+
         return {
             "status": "success",
             "content": response["content"],
             "message_id": response["message_id"]
         }
-        
+
     except Exception as e:
         logger.error(f"Consent callback error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -613,18 +622,18 @@ const handleSendMessage = async () => {
       message,
       threadId
     );
-    
-    if (response.status === 'consent_required') {
+
+    if (response.status === "consent_required") {
       // Show consent dialog
       setConsentInfo(response);
-      
+
       // Open consent URL in popup
       const popup = window.open(
         response.consent_url,
-        'oauth-consent',
-        'width=500,height=600'
+        "oauth-consent",
+        "width=500,height=600"
       );
-      
+
       // Wait for popup to close
       const checkPopup = setInterval(() => {
         if (popup?.closed) {
@@ -635,8 +644,8 @@ const handleSendMessage = async () => {
     } else {
       // Normal message response
       addMessage({
-        role: 'assistant',
-        content: response.content
+        role: "assistant",
+        content: response.content,
       });
     }
   } catch (error) {
@@ -651,15 +660,15 @@ const handleConsentComplete = async (runId: string, threadId: string) => {
       threadId,
       true
     );
-    
-    if (response.status === 'success') {
+
+    if (response.status === "success") {
       addMessage({
-        role: 'assistant',
-        content: response.content
+        role: "assistant",
+        content: response.content,
       });
     }
   } catch (error) {
-    console.error('Consent callback failed:', error);
+    console.error("Consent callback failed:", error);
   }
 };
 ```
@@ -701,6 +710,7 @@ const handleConsentComplete = async (runId: string, threadId: string) => {
 ### Step 4: Verify MCP Logs
 
 Check backend logs for:
+
 ```
 ✓ Azure Foundry MCP Client initialized
 ✓ OAuth consent required for microsoft-graph
@@ -779,6 +789,7 @@ Example of agent with MCP tools (for reference):
 ### Issue: "Connection not found"
 
 **Solution:**
+
 1. Verify connection exists in Azure Foundry Portal
 2. Check connection ID matches agent configuration
 3. Ensure connection status is "Connected"
@@ -786,6 +797,7 @@ Example of agent with MCP tools (for reference):
 ### Issue: "OAuth consent loop"
 
 **Solution:**
+
 1. Check redirect URI in Azure AD app registration
 2. Verify scopes match what's configured in connection
 3. Clear browser cookies and retry
@@ -793,6 +805,7 @@ Example of agent with MCP tools (for reference):
 ### Issue: "MCP tool not invoked"
 
 **Solution:**
+
 1. Check agent instructions mention the tool
 2. Verify tool is added to agent configuration
 3. Test user query is relevant to tool's purpose
@@ -800,6 +813,7 @@ Example of agent with MCP tools (for reference):
 ### Issue: "Permission denied after consent"
 
 **Solution:**
+
 1. Check OAuth scopes include required permissions
 2. Verify user has permissions in SharePoint
 3. Check token refresh is working in Foundry

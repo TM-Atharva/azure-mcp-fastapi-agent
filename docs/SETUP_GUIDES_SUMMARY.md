@@ -9,11 +9,13 @@ I've created **4 comprehensive Azure setup guides** with step-by-step instructio
 ## 📚 The Guides
 
 ### 1. **Official MCP Implementation Plan**
+
 **File:** [docs/OFFICIAL_MCP_IMPLEMENTATION_PLAN.md](docs/OFFICIAL_MCP_IMPLEMENTATION_PLAN.md)
 
 **Purpose:** Implement true Microsoft MCP OAuth Identity Passthrough using Azure Agent SDK
 
 **Covers:**
+
 - ✅ Azure Foundry Portal configuration (OAuth connections, MCP tools)
 - ✅ Backend code migration (Chat Completions → Agent SDK)
 - ✅ Frontend consent flow handling
@@ -25,11 +27,13 @@ I've created **4 comprehensive Azure setup guides** with step-by-step instructio
 ---
 
 ### 2. **RAG Azure Setup Guide**
+
 **File:** [docs/RAG_AZURE_SETUP_GUIDE.md](docs/RAG_AZURE_SETUP_GUIDE.md)
 
 **Purpose:** Set up Azure AI Search and SharePoint for knowledge retrieval
 
 **Covers:**
+
 - ✅ Create Azure AI Search service (step-by-step in Portal)
 - ✅ Define search index schema with permissions
 - ✅ Enable semantic search
@@ -42,11 +46,13 @@ I've created **4 comprehensive Azure setup guides** with step-by-step instructio
 ---
 
 ### 3. **RBAC Azure Setup Guide**
+
 **File:** [docs/RBAC_AZURE_SETUP_GUIDE.md](docs/RBAC_AZURE_SETUP_GUIDE.md)
 
 **Purpose:** Configure Azure AD groups and permissions for role-based access
 
 **Covers:**
+
 - ✅ Create Azure AD Security Groups (Admins, Analysts, Users, Guests)
 - ✅ Configure App Registration for group claims
 - ✅ Update backend to use Azure AD groups
@@ -59,11 +65,13 @@ I've created **4 comprehensive Azure setup guides** with step-by-step instructio
 ---
 
 ### 4. **Azure Setup Index**
+
 **File:** [docs/AZURE_SETUP_INDEX.md](docs/AZURE_SETUP_INDEX.md)
 
 **Purpose:** Master index and navigation for all setup guides
 
 **Covers:**
+
 - ✅ Quick start paths (Essential → RAG → MCP)
 - ✅ Complete checklist
 - ✅ Common issues and solutions
@@ -78,11 +86,13 @@ I've created **4 comprehensive Azure setup guides** with step-by-step instructio
 ## 🎯 Quick Navigation
 
 ### For Immediate Use (RBAC)
+
 1. Read: [RBAC_AZURE_SETUP_GUIDE.md](docs/RBAC_AZURE_SETUP_GUIDE.md)
 2. Time: 1-2 hours
 3. Complexity: Medium
 
 **Steps:**
+
 - Create 4 Security Groups in Azure AD
 - Configure App Registration for group claims
 - Update backend config with group IDs
@@ -91,11 +101,13 @@ I've created **4 comprehensive Azure setup guides** with step-by-step instructio
 ---
 
 ### For RAG Features (Azure AI Search)
+
 1. Read: [RAG_AZURE_SETUP_GUIDE.md](docs/RAG_AZURE_SETUP_GUIDE.md)
 2. Time: 2-3 hours
 3. Complexity: Medium
 
 **Steps:**
+
 - Create Azure AI Search service
 - Define index schema
 - Index sample documents
@@ -104,11 +116,13 @@ I've created **4 comprehensive Azure setup guides** with step-by-step instructio
 ---
 
 ### For Official MCP (Advanced)
+
 1. Read: [OFFICIAL_MCP_IMPLEMENTATION_PLAN.md](docs/OFFICIAL_MCP_IMPLEMENTATION_PLAN.md)
 2. Time: 4-6 hours
 3. Complexity: High
 
 **Steps:**
+
 - Create OAuth connections in Foundry Portal
 - Configure MCP tools on agents
 - Migrate backend to Agent SDK
@@ -119,6 +133,7 @@ I've created **4 comprehensive Azure setup guides** with step-by-step instructio
 ## 📋 Complete File List
 
 **New Documentation (4 files):**
+
 1. ✅ `docs/OFFICIAL_MCP_IMPLEMENTATION_PLAN.md` (~400 lines)
 2. ✅ `docs/RAG_AZURE_SETUP_GUIDE.md` (~550 lines)
 3. ✅ `docs/RBAC_AZURE_SETUP_GUIDE.md` (~520 lines)
@@ -138,13 +153,14 @@ I've created **4 comprehensive Azure setup guides** with step-by-step instructio
 ✅ **Testing procedures** - How to verify it works  
 ✅ **Troubleshooting** - Common issues and solutions  
 ✅ **Best practices** - Security, performance, maintenance  
-✅ **Success checklist** - Know when you're done  
+✅ **Success checklist** - Know when you're done
 
 ---
 
 ## 🚀 Recommended Order
 
 ### Start Here (Essential)
+
 ```
 1. RBAC Setup (1-2 hours)
    ↓
@@ -154,6 +170,7 @@ I've created **4 comprehensive Azure setup guides** with step-by-step instructio
 ```
 
 ### Then Add RAG (Optional)
+
 ```
 1. RAG Setup (2-3 hours)
    ↓
@@ -163,6 +180,7 @@ I've created **4 comprehensive Azure setup guides** with step-by-step instructio
 ```
 
 ### Finally, Full MCP (Advanced, Optional)
+
 ```
 1. Official MCP Implementation (4-6 hours)
    ↓
@@ -178,18 +196,21 @@ I've created **4 comprehensive Azure setup guides** with step-by-step instructio
 ## 💡 Key Highlights
 
 ### RBAC Guide Highlights
+
 - 📸 **Portal screenshots described** - Know exactly where to click
 - 🔐 **Security Groups setup** - Step-by-step creation
 - 🎯 **Group claim configuration** - Token setup explained
 - 🧪 **Testing matrix** - Test all role combinations
 
 ### RAG Guide Highlights
+
 - 🔍 **Index schema definition** - Complete JSON examples
 - 📊 **Semantic search setup** - Enable AI-powered search
 - 🔒 **Permission filtering** - Ensure users see only their docs
 - 📦 **Multiple indexing options** - Manual, Blob Storage, SharePoint
 
 ### MCP Guide Highlights
+
 - 🌐 **OAuth connection setup** - Portal configuration
 - 🛠️ **MCP tool configuration** - Add tools to agents
 - 💻 **Complete code examples** - Backend + Frontend
@@ -215,15 +236,15 @@ I've created **4 comprehensive Azure setup guides** with step-by-step instructio
 
 ## 📊 Comparison: Current vs Official MCP
 
-| Aspect | Current (Phase 1) | Official MCP |
-|--------|-------------------|--------------|
-| **API Used** | Chat Completions | Agent SDK |
-| **MCP Tools** | ❌ Not used | ✅ Configured in Foundry |
-| **OAuth Consent** | Manual endpoint | Foundry-managed |
-| **Token Storage** | Backend | Foundry handles |
-| **External Services** | Direct API calls | Via MCP servers |
-| **Complexity** | Medium | High |
-| **Microsoft Pattern** | Custom | Official |
+| Aspect                | Current (Phase 1) | Official MCP             |
+| --------------------- | ----------------- | ------------------------ |
+| **API Used**          | Chat Completions  | Agent SDK                |
+| **MCP Tools**         | ❌ Not used       | ✅ Configured in Foundry |
+| **OAuth Consent**     | Manual endpoint   | Foundry-managed          |
+| **Token Storage**     | Backend           | Foundry handles          |
+| **External Services** | Direct API calls  | Via MCP servers          |
+| **Complexity**        | Medium            | High                     |
+| **Microsoft Pattern** | Custom            | Official                 |
 
 **Current implementation works great for:** Passing user context, basic RAG
 
@@ -234,6 +255,7 @@ I've created **4 comprehensive Azure setup guides** with step-by-step instructio
 ## 🎯 Gap Analysis Resolution
 
 ### Gap Identified
+
 Your implementation didn't match official Microsoft MCP pattern.
 
 ### How Guides Address This
@@ -243,7 +265,9 @@ Your implementation didn't match official Microsoft MCP pattern.
 3. **RBAC Setup Guide** - Production-grade Azure AD integration
 
 ### Result
+
 After following guides:
+
 - ✅ Can keep current implementation (works fine for basic needs)
 - ✅ Can migrate to official MCP (if needed for external services)
 - ✅ Have production-ready Azure configuration
@@ -256,12 +280,14 @@ After following guides:
 You're successful when:
 
 **RBAC:**
+
 - [ ] 4 Azure AD groups created
 - [ ] Group claims in tokens
 - [ ] Different users see different agents
 - [ ] Logs show "User assigned X role (Azure AD group)"
 
 **RAG:**
+
 - [ ] Azure AI Search service running
 - [ ] Index populated with documents
 - [ ] Search returns results
@@ -269,6 +295,7 @@ You're successful when:
 - [ ] SharePoint access configured
 
 **MCP (Optional):**
+
 - [ ] OAuth connections in Foundry Portal
 - [ ] MCP tools added to agents
 - [ ] Backend uses Agent SDK
@@ -279,21 +306,25 @@ You're successful when:
 ## 📞 Next Steps
 
 ### Immediate (Today)
+
 1. ✅ Read [AZURE_SETUP_INDEX.md](docs/AZURE_SETUP_INDEX.md)
 2. Choose your path (RBAC first recommended)
 3. Set aside time for setup (1-2 hours for RBAC)
 
 ### This Week
+
 1. Complete RBAC setup
 2. Test with different user accounts
 3. Verify agent filtering works
 
 ### Next Week
+
 1. Set up RAG (if needed)
 2. Index company documents
 3. Test search functionality
 
 ### Future (Optional)
+
 1. Evaluate need for official MCP
 2. Plan migration if needed
 3. Implement gradually
@@ -303,17 +334,20 @@ You're successful when:
 ## 📖 Documentation Links
 
 **Setup Guides:**
+
 - [Azure Setup Index](docs/AZURE_SETUP_INDEX.md) - Start here
 - [RBAC Setup](docs/RBAC_AZURE_SETUP_GUIDE.md) - Role-based access
 - [RAG Setup](docs/RAG_AZURE_SETUP_GUIDE.md) - Knowledge base
 - [Official MCP](docs/OFFICIAL_MCP_IMPLEMENTATION_PLAN.md) - Advanced
 
 **Phase 1 Docs:**
+
 - [Phase 1 Summary](docs/PHASE1_SUMMARY.md)
 - [Phase 1 Implementation](docs/PHASE1_IMPLEMENTATION.md)
 - [Phase 1 Quick Reference](docs/PHASE1_QUICK_REFERENCE.md)
 
 **Original Docs:**
+
 - [Project Summary](PROJECT_SUMMARY.md)
 - [Main README](docs/README.md)
 
@@ -327,9 +361,10 @@ You're successful when:
 ✅ **Code examples ready to use**  
 ✅ **Testing procedures defined**  
 ✅ **Troubleshooting covered**  
-✅ **Gap analysis addressed**  
+✅ **Gap analysis addressed**
 
 **Your team now has everything needed to:**
+
 - Configure Azure AD for production RBAC
 - Set up Azure AI Search for knowledge base
 - Migrate to official Microsoft MCP (if needed)

@@ -54,10 +54,12 @@ This guide provides step-by-step instructions to set up RAG capabilities using *
 1. Go to your Search Service in Azure Portal
 2. Click **"Keys"** (left menu under Settings)
 3. Copy the following:
+
    - **Primary admin key** - Save this as `AZURE_AI_SEARCH_KEY`
    - **URL** - Save this as `AZURE_AI_SEARCH_ENDPOINT`
-   
+
    Example:
+
    ```
    AZURE_AI_SEARCH_ENDPOINT=https://your-search-service.search.windows.net
    AZURE_AI_SEARCH_KEY=1234567890ABCDEF...
@@ -78,17 +80,17 @@ This guide provides step-by-step instructions to set up RAG capabilities using *
 2. Enter index name: `documents`
 3. Add fields:
 
-| Field Name | Type | Attributes |
-|------------|------|------------|
-| `id` | String | Key, Retrievable |
-| `content` | String | Searchable, Retrievable |
-| `title` | String | Searchable, Retrievable, Facetable |
-| `url` | String | Retrievable |
-| `permissions` | Collection(String) | Filterable, Retrievable |
-| `created` | DateTimeOffset | Filterable, Sortable, Retrievable |
-| `modified` | DateTimeOffset | Filterable, Sortable, Retrievable |
-| `author` | String | Facetable, Filterable, Retrievable |
-| `category` | String | Facetable, Filterable, Retrievable |
+| Field Name    | Type               | Attributes                         |
+| ------------- | ------------------ | ---------------------------------- |
+| `id`          | String             | Key, Retrievable                   |
+| `content`     | String             | Searchable, Retrievable            |
+| `title`       | String             | Searchable, Retrievable, Facetable |
+| `url`         | String             | Retrievable                        |
+| `permissions` | Collection(String) | Filterable, Retrievable            |
+| `created`     | DateTimeOffset     | Filterable, Sortable, Retrievable  |
+| `modified`    | DateTimeOffset     | Filterable, Sortable, Retrievable  |
+| `author`      | String             | Facetable, Filterable, Retrievable |
+| `category`    | String             | Facetable, Filterable, Retrievable |
 
 4. Click **"Create"**
 
@@ -195,6 +197,7 @@ This guide provides step-by-step instructions to set up RAG capabilities using *
 ```
 
 2. Send POST request:
+
 ```bash
 curl -X POST \
   "https://your-search-service.search.windows.net/indexes?api-version=2023-11-01" \
@@ -285,6 +288,7 @@ for r in result:
 ```
 
 Run the script:
+
 ```bash
 python scripts/index_documents.py
 ```
@@ -292,13 +296,15 @@ python scripts/index_documents.py
 #### 4.2 Option B: Azure Blob Storage Indexer (For Production)
 
 1. **Create Azure Blob Storage**
+
    - In Azure Portal, create a Storage Account
    - Create a container named `documents`
    - Upload your PDF, Word, Excel files
 
 2. **Create Data Source**
-   
+
    In Azure Portal → Your Search Service → Data sources:
+
    ```
    Name: blob-datasource
    Type: Azure Blob Storage
@@ -307,8 +313,9 @@ python scripts/index_documents.py
    ```
 
 3. **Create Indexer**
-   
+
    In Azure Portal → Your Search Service → Indexers:
+
    ```
    Name: blob-indexer
    Data source: blob-datasource
@@ -317,8 +324,9 @@ python scripts/index_documents.py
    ```
 
 4. **Configure AI Enrichment (Optional)**
-   
+
    Enable AI skills for:
+
    - OCR (extract text from images)
    - Key phrase extraction
    - Entity recognition
@@ -451,13 +459,15 @@ for result in results:
 
 1. Click **"Authentication"** (left menu)
 2. Under **"Platform configurations"**, ensure you have:
+
    ```
    Platform: Single-page application
    Redirect URI: http://localhost:5173
-   
+
    Platform: Web
    Redirect URI: http://localhost:8000/auth/callback
    ```
+
 3. Under **"Implicit grant and hybrid flows"**, enable:
    - ✅ Access tokens
    - ✅ ID tokens
@@ -478,6 +488,7 @@ for result in results:
 #### 3.2 Test Search
 
 Try searching SharePoint:
+
 ```
 POST https://graph.microsoft.com/v1.0/search/query
 Content-Type: application/json
@@ -529,16 +540,19 @@ For sensitive documents:
 Your application searches SharePoint in real-time (current implementation):
 
 **Pros:**
+
 - Always up-to-date
 - No indexing delay
 - Respects SharePoint permissions automatically
 
 **Cons:**
+
 - Slower than pre-indexed search
 - Requires active SharePoint connection
 - API rate limits
 
 **Configuration:**
+
 ```env
 SHAREPOINT_ENABLED=true
 SHAREPOINT_SITE_URL=https://company.sharepoint.com/sites/knowledge
@@ -565,6 +579,7 @@ In Azure AI Search:
 
 1. Click **"Indexers"** → **"+ Add indexer"**
 2. Configure:
+
    ```
    Name: sharepoint-indexer
    Data source: sharepoint-datasource
@@ -614,6 +629,7 @@ curl -X POST "http://localhost:8000/api/rag/search?query=financial%20report&sour
 ```
 
 Expected response:
+
 ```json
 {
   "query": "financial report",
@@ -674,11 +690,13 @@ curl -X POST "http://localhost:8000/api/rag/search?query=report&sources=ai_searc
 ### Azure AI Search Monitoring
 
 1. **View Search Analytics**
+
    - In Azure Portal → Your Search Service
    - Click **"Monitoring"** → **"Metrics"**
    - Monitor: Search queries, latency, throttling
 
 2. **Enable Diagnostic Logs**
+
    - Click **"Diagnostic settings"** → **"+ Add diagnostic setting"**
    - Enable: Search queries, indexing operations
    - Send to: Log Analytics workspace
@@ -690,6 +708,7 @@ curl -X POST "http://localhost:8000/api/rag/search?query=report&sources=ai_searc
 ### SharePoint Monitoring
 
 1. **Check API Usage**
+
    - Go to [Microsoft 365 Admin Center](https://admin.microsoft.com/)
    - Click **"Reports"** → **"Usage"**
    - Monitor Microsoft Graph API calls
@@ -705,6 +724,7 @@ curl -X POST "http://localhost:8000/api/rag/search?query=report&sources=ai_searc
 ### Issue: Azure AI Search returns no results
 
 **Solutions:**
+
 1. Check index has documents: Portal → Indexes → documents → Document count
 2. Verify API key is correct
 3. Test with simple query: `{"search": "*"}` (returns all)
@@ -713,6 +733,7 @@ curl -X POST "http://localhost:8000/api/rag/search?query=report&sources=ai_searc
 ### Issue: SharePoint 401/403 errors
 
 **Solutions:**
+
 1. Verify Azure AD app has required permissions
 2. Check admin consent was granted
 3. Ensure user's token has correct scopes
@@ -721,6 +742,7 @@ curl -X POST "http://localhost:8000/api/rag/search?query=report&sources=ai_searc
 ### Issue: Permission filtering not working
 
 **Solutions:**
+
 1. **Azure AI Search**: Verify `permissions` field exists and is populated
 2. **SharePoint**: Microsoft Graph enforces permissions automatically
 3. Check filter syntax: `permissions/any(p: p eq 'email')`
@@ -728,6 +750,7 @@ curl -X POST "http://localhost:8000/api/rag/search?query=report&sources=ai_searc
 ### Issue: Slow search performance
 
 **Solutions:**
+
 1. Enable semantic search
 2. Add more search units in pricing tier
 3. Consider caching frequent queries
@@ -777,22 +800,25 @@ curl -X POST "http://localhost:8000/api/rag/search?query=report&sources=ai_searc
 ✅ Users see only authorized documents  
 ✅ Environment variables configured  
 ✅ Backend RAG endpoints work  
-✅ End-to-end testing passed  
+✅ End-to-end testing passed
 
 ---
 
 ## Next Steps
 
 1. **Index Production Documents**
+
    - Set up Azure Blob Storage or SharePoint indexer
    - Configure automatic indexing schedule
 
 2. **Enhance Search**
+
    - Add custom scoring profiles
    - Configure synonyms
    - Enable autocomplete/suggestions
 
 3. **Monitor Usage**
+
    - Set up alerts for errors
    - Track search analytics
    - Optimize based on user queries
