@@ -38,12 +38,22 @@ export default function ChatArea({
     const skipNextFetchRef = useRef(false);
     // Use a ref to track the last rendered session ID to detect switches
     const lastSessionIdRef = useRef<string | undefined>(activeSession?.id);
+    const selectedAgentRef = useRef(selectedAgent);
+
+    useEffect(() => {
+        selectedAgentRef.current = selectedAgent;
+    }, [selectedAgent]);
 
     // Derived state: Are we in the process of switching sessions?
     // We ignore this if we are in the "skip fetch" (creation) mode.
     const isSwitchingSession = activeSession?.id &&
         activeSession.id !== lastSessionIdRef.current &&
         !skipNextFetchRef.current;
+
+    // Clear messages immediately when selected agent changes to prevent stale chats
+    useEffect(() => {
+        setMessages([]);
+    }, [selectedAgent?.id]);
 
     // Initial fetch when session changes
     useEffect(() => {
@@ -102,6 +112,7 @@ export default function ChatArea({
     const handleSend = async () => {
         if (!input.trim() || !selectedAgent || loading) return;
 
+        const initiatingAgentId = selectedAgent.id;
         const userMessageContent = input;
         setInput(''); // Clear input immediately
 
@@ -129,6 +140,13 @@ export default function ChatArea({
                         agent_id: selectedAgent.id,
                         title: userMessageContent.slice(0, 50)
                     });
+
+                    // Race condition check: If agent changed, abort and revert optimistic update
+                    if (selectedAgentRef.current?.id !== initiatingAgentId) {
+                        setMessages(prev => prev.filter(m => m.id !== tempId));
+                        return;
+                    }
+
                     currentSessionId = sessionResponse.session.id;
                     // Notify parent to update sidebar, but we handle state locally mostly
                     skipNextFetchRef.current = true;
@@ -148,6 +166,9 @@ export default function ChatArea({
                 content: userMessageContent,
                 metadata: {}
             });
+
+            // Race condition check: If agent changed, abort to prevent ghost messages
+            if (selectedAgentRef.current?.id !== initiatingAgentId) return;
 
             // Replace optimistic message with real one and add assistant response
             setMessages(prev => {
@@ -265,8 +286,8 @@ export default function ChatArea({
                             </div>
                         ))}
                     </div>
-                ) : !activeSession && messages.length === 0 ? (
-                    // Empty State (New Chat)
+                ) : (!activeSession && !messages.some(m => m.session_id === 'temp')) ? (
+                    // Empty State (New Chat) or Stale Messages (Hidden)
                     <div className="h-full flex flex-col items-center justify-center p-8 text-center text-slate-500 dark:text-slate-400">
                         <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center mb-6">
                             <Bot className="w-10 h-10 text-slate-400 dark:text-slate-500" />
