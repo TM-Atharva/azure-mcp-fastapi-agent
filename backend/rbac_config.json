@@ -1,0 +1,121 @@
+{
+  "version": "1.0",
+  "description": "Dynamic Agent Access Control Configuration - No code changes needed!",
+  "last_updated": "2025-12-17",
+
+  "role_permissions": {
+    "Admin": {
+      "description": "Full administrative access to all agents and system configuration",
+      "agent_patterns": ["*"],
+      "allow_all": true
+    },
+
+    "FinanceAnalyst": {
+      "description": "Finance department - budget, invoices, expenses, payroll",
+      "agent_patterns": [
+        "budget",
+        "invoice",
+        "expense",
+        "financial",
+        "accounting",
+        "payroll",
+        "audit",
+        "tax"
+      ],
+      "allow_all": false
+    },
+
+    "HRAnalyst": {
+      "description": "HR department - recruiting, onboarding, employee management",
+      "agent_patterns": [
+        "recruiting",
+        "hr",
+        "employee",
+        "hiring",
+        "onboarding",
+        "benefits",
+        "performance",
+        "training"
+      ],
+      "allow_all": false
+    },
+
+    "SalesAnalyst": {
+      "description": "Sales department - CRM, pipeline, customer engagement",
+      "agent_patterns": [
+        "crm",
+        "sales",
+        "customer",
+        "pipeline",
+        "lead",
+        "opportunity",
+        "forecast"
+      ],
+      "allow_all": false
+    },
+
+    "BasicUser": {
+      "description": "General purpose agents for all authenticated users",
+      "agent_patterns": ["general", "assistant", "chat", "public", "help"],
+      "allow_all": false
+    },
+
+    "Guest": {
+      "description": "Limited access for guest users",
+      "agent_patterns": ["public", "demo"],
+      "allow_all": false
+    }
+  },
+
+  "default_role": "BasicUser",
+
+  "agent_metadata": {
+    "description": "Optional: Define specific agent permissions that override pattern matching",
+    "agents": {
+      "Budget Planning Assistant": {
+        "required_roles": ["Admin", "FinanceAnalyst"],
+        "department": "Finance",
+        "tags": ["financial", "planning"]
+      },
+      "Invoice Processing Bot": {
+        "required_roles": ["Admin", "FinanceAnalyst"],
+        "department": "Finance",
+        "tags": ["automation", "accounting"]
+      },
+      "Recruiting Assistant": {
+        "required_roles": ["Admin", "HRAnalyst"],
+        "department": "HR",
+        "tags": ["hiring", "talent"]
+      },
+      "HR Policy Helper": {
+        "required_roles": ["Admin", "HRAnalyst"],
+        "department": "HR",
+        "tags": ["compliance", "policy"]
+      },
+      "CRM Data Analyzer": {
+        "required_roles": ["Admin", "SalesAnalyst"],
+        "department": "Sales",
+        "tags": ["analytics", "customer"]
+      },
+      "General Assistant": {
+        "required_roles": [
+          "Admin",
+          "FinanceAnalyst",
+          "HRAnalyst",
+          "SalesAnalyst",
+          "BasicUser"
+        ],
+        "department": "General",
+        "tags": ["productivity"]
+      }
+    }
+  },
+
+  "settings": {
+    "enable_pattern_matching": true,
+    "enable_agent_metadata": true,
+    "case_sensitive_patterns": false,
+    "log_access_attempts": true,
+    "cache_ttl_seconds": 300
+  }
+}

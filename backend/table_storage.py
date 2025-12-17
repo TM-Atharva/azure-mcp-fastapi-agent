@@ -49,7 +49,15 @@ class TableStorageClient:
 
     def _ensure_tables_exist(self):
         """Create tables if they don't exist"""
-        tables = ["users", "agents", "sessions", "messages"]
+        tables = [
+            "users", 
+            "agents", 
+            "sessions", 
+            "messages",
+            "mcptokens",        # MCP OAuth tokens per user-server
+            "userroles",        # RBAC user role assignments
+            "agentpermissions"  # RBAC agent visibility rules
+        ]
         for table_name in tables:
             try:
                 self.service_client.create_table(table_name)
@@ -380,6 +388,183 @@ class TableStorageClient:
             messages = messages[-limit:]
 
         return messages
+
+    # ============================================================
+    # MCP Token Storage Methods
+    # ============================================================
+
+    def store_mcp_token(
+        self,
+        user_id: str,
+        server_label: str,
+        access_token: str,
+        refresh_token: str = "",
+        expires_at: Optional[datetime] = None
+    ) -> None:
+        """
+        Store MCP OAuth tokens for a user-server pair.
+
+        PartitionKey: user_id
+        RowKey: server_label
+
+        Note: In production, encrypt tokens before storage!
+        """
+        table_client = self._get_table_client("mcptokens")
+        entity = {
+            "PartitionKey": user_id,
+            "RowKey": server_label,
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "expires_at": expires_at.isoformat() if expires_at else "",
+            "connected_at": self._to_iso_string()
+        }
+        table_client.upsert_entity(entity)
+
+    def get_user_mcp_tokens(self, user_id: str) -> Dict[str, Dict[str, Any]]:
+        """
+        Get all MCP tokens for a user.
+
+        Returns:
+            Dict mapping server_label to token info
+        """
+        table_client = self._get_table_client("mcptokens")
+        query_filter = f"PartitionKey eq '{user_id}'"
+        entities = table_client.query_entities(query_filter)
+        
+        tokens = {}
+        for entity in entities:
+            server_label = entity["RowKey"]
+            tokens[server_label] = {
+                "access_token": entity.get("access_token", ""),
+                "refresh_token": entity.get("refresh_token", ""),
+                "expires_at": entity.get("expires_at", ""),
+                "connected_at": entity.get("connected_at", "")
+            }
+        return tokens
+
+    def delete_mcp_token(self, user_id: str, server_label: str) -> None:
+        """Delete MCP token (disconnect user from service)"""
+        table_client = self._get_table_client("mcptokens")
+        try:
+            table_client.delete_entity(partition_key=user_id, row_key=server_label)
+        except ResourceNotFoundError:
+            pass
+
+    # ============================================================
+    # RBAC Methods - User Roles
+    # ============================================================
+
+    def assign_user_role(
+        self,
+        user_id: str,
+        role: str,
+        assigned_by: str
+    ) -> None:
+        """
+        Assign a role to a user.
+
+        PartitionKey: user_id
+        RowKey: role
+        """
+        table_client = self._get_table_client("userroles")
+        entity = {
+            "PartitionKey": user_id,
+            "RowKey": role,
+            "assigned_by": assigned_by,
+            "assigned_at": self._to_iso_string()
+        }
+        table_client.upsert_entity(entity)
+
+    def get_user_roles(self, user_id: str) -> List[str]:
+        """Get all roles assigned to a user"""
+        table_client = self._get_table_client("userroles")
+        query_filter = f"PartitionKey eq '{user_id}'"
+        entities = table_client.query_entities(query_filter)
+        return [entity["RowKey"] for entity in entities]
+
+    def remove_user_role(self, user_id: str, role: str) -> None:
+        """Remove a role from a user"""
+        table_client = self._get_table_client("userroles")
+        try:
+            table_client.delete_entity(partition_key=user_id, row_key=role)
+        except ResourceNotFoundError:
+            pass
+
+    # ============================================================
+    # RBAC Methods - Agent Permissions
+    # ============================================================
+
+    def set_agent_permissions(
+        self,
+        agent_id: str,
+        allowed_roles: List[str],
+        allowed_users: Optional[List[str]] = None
+    ) -> None:
+        """
+        Set which roles/users can access an agent.
+
+        PartitionKey: "permissions"
+        RowKey: agent_id
+        """
+        table_client = self._get_table_client("agentpermissions")
+        entity = {
+            "PartitionKey": "permissions",
+            "RowKey": agent_id,
+            "allowed_roles": json.dumps(allowed_roles),
+            "allowed_users": json.dumps(allowed_users or []),
+            "updated_at": self._to_iso_string()
+        }
+        table_client.upsert_entity(entity)
+
+    def get_agent_permissions(self, agent_id: str) -> Optional[Dict[str, Any]]:
+        """Get permissions for a specific agent"""
+        table_client = self._get_table_client("agentpermissions")
+        try:
+            entity = table_client.get_entity(partition_key="permissions", row_key=agent_id)
+            return {
+                "allowed_roles": json.loads(entity.get("allowed_roles", "[]")),
+                "allowed_users": json.loads(entity.get("allowed_users", "[]"))
+            }
+        except ResourceNotFoundError:
+            return None
+
+    def get_user_accessible_agents(self, user_id: str) -> List[str]:
+        """
+        Get list of agent IDs that a user can access based on RBAC.
+
+        Returns all agent IDs if no permissions are set (default allow).
+        """
+        # Get user's roles
+        user_roles = self.get_user_roles(user_id)
+        
+        # If no roles assigned, give default "user" role
+        if not user_roles:
+            user_roles = ["user"]
+        
+        # Query all agent permissions
+        table_client = self._get_table_client("agentpermissions")
+        try:
+            permissions = list(table_client.query_entities("PartitionKey eq 'permissions'"))
+        except Exception:
+            return []  # On error, return empty (deny access)
+        
+        # If no permissions defined, all agents are accessible
+        if not permissions:
+            return []  # Empty means "no restrictions"
+        
+        accessible = []
+        for perm in permissions:
+            agent_id = perm["RowKey"]
+            allowed_roles = json.loads(perm.get("allowed_roles", "[]"))
+            allowed_users = json.loads(perm.get("allowed_users", "[]"))
+            
+            # Check if user has access
+            if user_id in allowed_users:
+                accessible.append(agent_id)
+            elif any(role in allowed_roles for role in user_roles):
+                accessible.append(agent_id)
+        
+        return accessible
 
 
 table_storage = TableStorageClient()

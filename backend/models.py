@@ -117,3 +117,49 @@ class ErrorResponse(BaseModel):
     detail: str
     code: Optional[str] = None
     timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+
+# ============================================================
+# MCP Models
+# ============================================================
+
+class MCPServer(BaseModel):
+    """MCP server information"""
+    label: str
+    display_name: str
+    description: str = ""
+    url: str
+    requires_oauth: bool = True
+    scopes: List[str] = []
+    icon: str = "🔗"
+    connected: bool = False
+    connected_at: Optional[str] = None
+
+
+class MCPServersResponse(BaseModel):
+    """Response containing list of MCP servers"""
+    servers: List[MCPServer]
+
+
+class MCPConsentCallbackRequest(BaseModel):
+    """Request to store OAuth consent result"""
+    server_label: str
+    access_token: str
+    refresh_token: Optional[str] = None
+
+
+class MCPConsentRequiredResponse(BaseModel):
+    """Response when OAuth consent is required"""
+    type: str = "oauth_consent_required"
+    consent_url: str
+    server_label: str
+    server_display_name: str
+
+
+class MCPToolCallInfo(BaseModel):
+    """Information about an MCP tool call in progress"""
+    tool_name: str
+    server_label: str
+    status: str = "running"  # running, completed, failed
+    arguments: Optional[Dict[str, Any]] = None
+

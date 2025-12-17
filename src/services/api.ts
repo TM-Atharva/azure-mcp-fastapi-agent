@@ -113,6 +113,38 @@ class ApiClient {
     });
     return response.data;
   }
+
+  // Alias for getUserSessions
+  async getSessions(): Promise<ChatSession[]> {
+    return this.getUserSessions();
+  }
+
+  // MCP Methods
+  async getMcpServers(): Promise<any> {
+    const response = await this.client.get("/mcp/servers");
+    return response.data;
+  }
+
+  async storeMcpConsent(serverLabel: string, accessToken: string, refreshToken?: string): Promise<any> {
+    const response = await this.client.post("/mcp/consent-callback", {
+      server_label: serverLabel,
+      access_token: accessToken,
+      refresh_token: refreshToken
+    });
+    return response.data;
+  }
+
+  async getMcpConnections(): Promise<any> {
+    const response = await this.client.get("/mcp/connections");
+    return response.data;
+  }
+
+  async disconnectMcpServer(serverLabel: string): Promise<any> {
+    const response = await this.client.delete(`/mcp/connections/${serverLabel}`);
+    return response.data;
+  }
 }
 
 export const apiClient = new ApiClient();
+export const api = apiClient; // Export as 'api' for convenience
+

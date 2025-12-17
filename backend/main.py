@@ -36,13 +36,18 @@ from models import (
     MessageResponse,
     SessionResponse,
     ChatHistoryResponse,
-    ErrorResponse
+    ErrorResponse,
+    MCPServer,
+    MCPServersResponse,
+    MCPConsentCallbackRequest,
+    MCPConsentRequiredResponse
 )
 from auth import get_current_user, get_mcp_context, auth_handler
 from azure_foundry import foundry_client
 from table_storage import table_storage
 from rbac import filter_agents_for_user, get_user_roles_from_profile
 from rag_integration import RAGService
+from mcp_connections import mcp_manager, MCP_SERVERS
 
 
 # Configure logging
@@ -491,7 +496,7 @@ async def get_session_history(
                 session_id=entity["session_id"],
                 role=entity["role"],
                 content=entity["content"],
-                metadata=json.loads(entity.get("metadata", "{}")),
+                metadata=entity.get("metadata", {}),
                 created_at=entity["created_at"]
             )
             messages.append(message)
@@ -835,6 +840,221 @@ async def delete_session(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to delete session: {str(e)}"
+        )
+
+
+# ============================================================
+# MCP (Model Context Protocol) Endpoints
+# ============================================================
+
+@app.get("/api/mcp/servers", response_model=MCPServersResponse)
+async def list_mcp_servers(
+    current_user: UserProfile = Depends(get_current_user)
+):
+    """
+    List available MCP servers and user's connection status.
+    
+    This endpoint returns all MCP servers from the Azure Foundry catalog
+    along with whether the current user has connected to each one.
+    
+    Headers:
+        Authorization: Bearer <azure_ad_access_token>
+    
+    Returns:
+        MCPServersResponse: List of MCP servers with connection status
+    """
+    logger.info(f"Fetching MCP servers for user: {current_user.email}")
+    
+    try:
+        # Get servers with user's connection status
+        servers_with_status = mcp_manager.get_servers_with_status(current_user.azure_id)
+        
+        # Convert to response model
+        servers = [
+            MCPServer(
+                label=s["label"],
+                display_name=s["display_name"],
+                description=s.get("description", ""),
+                url=s["url"],
+                requires_oauth=s["requires_oauth"],
+                scopes=s.get("scopes", []),
+                icon=s.get("icon", "🔗"),
+                connected=s["connected"],
+                connected_at=s.get("connected_at")
+            )
+            for s in servers_with_status
+        ]
+        
+        logger.info(f"Returning {len(servers)} MCP servers for user {current_user.email}")
+        return MCPServersResponse(servers=servers)
+        
+    except Exception as e:
+        logger.error(f"Error fetching MCP servers: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch MCP servers: {str(e)}"
+        )
+
+
+@app.post("/api/mcp/consent-callback")
+async def mcp_consent_callback(
+    request: MCPConsentCallbackRequest,
+    current_user: UserProfile = Depends(get_current_user)
+):
+    """
+    Handle OAuth consent callback from MCP server.
+    
+    This endpoint is called after a user completes the OAuth consent flow
+    for an MCP server (e.g., GitHub, Outlook). It stores the tokens
+    so the agent can use them in future requests.
+    
+    Note: In production with Azure Foundry's managed OAuth, tokens are
+    stored by Foundry itself. This endpoint is for tracking connection
+    status and for custom OAuth implementations.
+    
+    Headers:
+        Authorization: Bearer <azure_ad_access_token>
+    
+    Body:
+        MCPConsentCallbackRequest: server_label, access_token, refresh_token
+    
+    Returns:
+        Dict with connection status
+    """
+    logger.info(f"MCP consent callback for user {current_user.email}, server: {request.server_label}")
+    
+    try:
+        # Validate server exists
+        if request.server_label not in MCP_SERVERS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Unknown MCP server: {request.server_label}"
+            )
+        
+        # Store the consent result
+        success = mcp_manager.store_user_consent(
+            user_id=current_user.azure_id,
+            server_label=request.server_label,
+            access_token=request.access_token,
+            refresh_token=request.refresh_token
+        )
+        
+        if success:
+            server_config = MCP_SERVERS[request.server_label]
+            logger.info(f"✓ MCP consent stored for {current_user.email} - {request.server_label}")
+            return {
+                "status": "connected",
+                "server_label": request.server_label,
+                "display_name": server_config.display_name,
+                "message": f"Successfully connected to {server_config.display_name}"
+            }
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to store consent result"
+            )
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in MCP consent callback: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to process consent: {str(e)}"
+        )
+
+
+@app.delete("/api/mcp/connections/{server_label}")
+async def disconnect_mcp_server(
+    server_label: str,
+    current_user: UserProfile = Depends(get_current_user)
+):
+    """
+    Disconnect user from an MCP server.
+    
+    This removes the stored tokens for the specified MCP server,
+    requiring the user to re-authenticate next time.
+    
+    Headers:
+        Authorization: Bearer <azure_ad_access_token>
+    
+    Returns:
+        Dict with disconnection status
+    """
+    logger.info(f"Disconnecting MCP server {server_label} for user {current_user.email}")
+    
+    try:
+        if server_label not in MCP_SERVERS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Unknown MCP server: {server_label}"
+            )
+        
+        success = mcp_manager.remove_user_connection(current_user.azure_id, server_label)
+        
+        if success:
+            return {
+                "status": "disconnected",
+                "server_label": server_label,
+                "message": f"Disconnected from {MCP_SERVERS[server_label].display_name}"
+            }
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to disconnect"
+            )
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error disconnecting MCP server: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to disconnect: {str(e)}"
+        )
+
+
+@app.get("/api/mcp/connections")
+async def get_user_mcp_connections(
+    current_user: UserProfile = Depends(get_current_user)
+):
+    """
+    Get all MCP connections for the current user.
+    
+    Returns a summary of which MCP servers the user has connected to.
+    
+    Headers:
+        Authorization: Bearer <azure_ad_access_token>
+    
+    Returns:
+        Dict with connection details per server
+    """
+    logger.info(f"Getting MCP connections for user: {current_user.email}")
+    
+    try:
+        connections = mcp_manager.get_user_mcp_connections(current_user.azure_id)
+        
+        result = {}
+        for server_label, conn_info in connections.items():
+            if server_label in MCP_SERVERS:
+                result[server_label] = {
+                    "display_name": MCP_SERVERS[server_label].display_name,
+                    "connected": True,
+                    "connected_at": conn_info.get("connected_at"),
+                    "icon": MCP_SERVERS[server_label].icon
+                }
+        
+        return {
+            "connections": result,
+            "connected_count": len(result),
+            "available_count": len(MCP_SERVERS)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting MCP connections: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get connections: {str(e)}"
         )
 
 
