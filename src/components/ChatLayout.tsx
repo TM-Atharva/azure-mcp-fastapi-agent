@@ -10,15 +10,20 @@ export default function ChatLayout() {
     const [sessions, setSessions] = useState<ChatSession[]>([]);
     const [activeSession, setActiveSession] = useState<ChatSession | null>(null);
     const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [loadingSessions, setLoadingSessions] = useState(true);
+    const [loadingAgents, setLoadingAgents] = useState(true);
 
     // Fetch agents on mount
     useEffect(() => {
-        fetchAgents();
-        fetchSessions();
+        const init = async () => {
+            await Promise.all([fetchAgents(), fetchSessions()]);
+        };
+        init();
     }, []);
 
     const fetchAgents = async () => {
         try {
+            setLoadingAgents(true);
             const response = await api.getAgents();
             setAgents(response.agents);
 
@@ -28,15 +33,20 @@ export default function ChatLayout() {
             }
         } catch (error) {
             console.error('Failed to fetch agents:', error);
+        } finally {
+            setLoadingAgents(false);
         }
     };
 
     const fetchSessions = async () => {
         try {
+            setLoadingSessions(true);
             const sessions = await api.getSessions();
             setSessions(sessions);
         } catch (error) {
             console.error('Failed to fetch sessions:', error);
+        } finally {
+            setLoadingSessions(false);
         }
     };
 
@@ -90,10 +100,12 @@ export default function ChatLayout() {
                 onDeleteSession={handleDeleteSession}
                 isOpen={sidebarOpen}
                 onToggle={() => setSidebarOpen(!sidebarOpen)}
+                isLoading={loadingSessions}
             />
 
             {/* Main Chat Area */}
             <ChatArea
+                key={activeSession?.id || selectedAgent?.id || 'new'}
                 selectedAgent={selectedAgent}
                 agents={agents}
                 activeSession={activeSession}
@@ -102,6 +114,7 @@ export default function ChatLayout() {
                 onSessionCreated={handleSessionCreated}
                 sidebarOpen={sidebarOpen}
                 onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+                isLoadingAgents={loadingAgents}
             />
         </div>
     );

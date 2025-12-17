@@ -11,6 +11,7 @@ interface SidebarProps {
     onDeleteSession: (sessionId: string) => void;
     isOpen: boolean;
     onToggle: () => void;
+    isLoading?: boolean;
 }
 
 export default function Sidebar({
@@ -19,7 +20,8 @@ export default function Sidebar({
     onSelectSession,
     onNewChat,
     onDeleteSession,
-    isOpen
+    isOpen,
+    isLoading = false
 }: SidebarProps) {
     const { user, logout } = useAuth();
     const { theme, toggleTheme } = useTheme();
@@ -41,7 +43,14 @@ export default function Sidebar({
 
             {/* Chat History */}
             <div className="flex-1 overflow-y-auto p-3 space-y-1">
-                {sessions.length === 0 ? (
+                {isLoading ? (
+                    // Skeleton Loader
+                    [...Array(5)].map((_, i) => (
+                        <div key={i} className="px-3 py-2 animate-pulse">
+                            <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-3/4"></div>
+                        </div>
+                    ))
+                ) : sessions.length === 0 ? (
                     <div className="text-center py-8 text-slate-500 dark:text-slate-500 text-sm">
                         No chat history yet
                     </div>
@@ -50,8 +59,8 @@ export default function Sidebar({
                         <div
                             key={session.id}
                             className={`group relative flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors ${activeSession?.id === session.id
-                                    ? 'bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-white'
-                                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-white'
+                                ? 'bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-white'
+                                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-white'
                                 }`}
                             onClick={() => onSelectSession(session)}
                         >

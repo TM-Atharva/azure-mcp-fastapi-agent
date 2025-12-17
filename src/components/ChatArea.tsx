@@ -12,6 +12,7 @@ interface ChatAreaProps {
     onSessionCreated: (session: ChatSession) => void;
     sidebarOpen: boolean;
     onToggleSidebar: () => void;
+    isLoadingAgents?: boolean;
 }
 
 export default function ChatArea({
@@ -22,134 +23,170 @@ export default function ChatArea({
     onNewChat,
     onSessionCreated,
     sidebarOpen,
-    onToggleSidebar
+    onToggleSidebar,
+    isLoadingAgents = false
 }: ChatAreaProps) {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
     const [agentDropdownOpen, setAgentDropdownOpen] = useState(false);
+
+    // Use a ref for the scroll anchor
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    // Fetch messages when active session changes
+    // Initial fetch when session changes
     useEffect(() => {
-        if (activeSession) {
-            fetchMessages();
-        } else {
-            setMessages([]);
-        }
-    }, [activeSession]);
+        let isMounted = true;
 
-    // Auto-scroll to bottom when messages change
+        const loadMessages = async () => {
+            if (activeSession) {
+                setLoading(true); // Show local loading state if needed
+                try {
+                    const response = await api.getSessionHistory(activeSession.id);
+                    if (isMounted) {
+                        setMessages(response.messages || []);
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch messages:', error);
+                    if (isMounted) setMessages([]);
+                } finally {
+                    if (isMounted) setLoading(false);
+                }
+            } else {
+                if (isMounted) setMessages([]);
+            }
+        };
+
+        loadMessages();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [activeSession?.id]); // Only re-run if session ID changes
+
+    // Scroll to bottom on new messages
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
-
-    const fetchMessages = async () => {
-        if (!activeSession) return;
-
-        try {
-            const response = await api.getSessionHistory(activeSession.id);
-            setMessages(response.messages || []);
-        } catch (error) {
-            console.error('Failed to fetch messages:', error);
-            // Set empty messages on error to prevent crash
-            setMessages([]);
-        }
-    };
+    }, [messages, loading]);
 
     const handleSend = async () => {
         if (!input.trim() || !selectedAgent || loading) return;
 
-        // Create session if none exists
-        let sessionId = activeSession?.id;
-        if (!sessionId) {
-            try {
-                const response = await api.createSession({
-                    agent_id: selectedAgent.id,
-                    title: input.slice(0, 50) // Use first 50 chars as title
-                });
-                sessionId = response.session.id;
-                onSessionCreated(response.session); // Update active session in layout
-            } catch (error) {
-                console.error('Failed to create session:', error);
-                return;
-            }
-        }
+        const userMessageContent = input;
+        setInput(''); // Clear input immediately
 
-        const userMessage = input;
-        setInput('');
-        setLoading(true);
+        let currentSessionId = activeSession?.id;
 
-        // Add user message to UI immediately
+        // Optimistic update: Add user message locally
+        const tempId = Date.now().toString();
         const tempUserMessage: ChatMessage = {
-            id: Date.now().toString(),
-            session_id: sessionId!,
+            id: tempId,
+            session_id: currentSessionId || 'temp',
             role: 'user',
-            content: userMessage,
+            content: userMessageContent,
             metadata: {},
             created_at: new Date().toISOString()
         };
+
         setMessages(prev => [...prev, tempUserMessage]);
+        setLoading(true);
 
         try {
+            // If no active session, create one first
+            if (!currentSessionId) {
+                try {
+                    const sessionResponse = await api.createSession({
+                        agent_id: selectedAgent.id,
+                        title: userMessageContent.slice(0, 50)
+                    });
+                    currentSessionId = sessionResponse.session.id;
+                    // Notify parent to update sidebar, but we handle state locally mostly
+                    onSessionCreated(sessionResponse.session);
+                } catch (error) {
+                    console.error('Failed to create session:', error);
+                    // Remove optimistic message if session creation fails
+                    setMessages(prev => prev.filter(m => m.id !== tempId));
+                    setLoading(false);
+                    return;
+                }
+            }
+
+            // Send message
             const response = await api.sendMessage({
-                session_id: sessionId!,
-                content: userMessage,
+                session_id: currentSessionId!,
+                content: userMessageContent,
                 metadata: {}
             });
 
-            // Replace temp message with actual message and add assistant response
-            setMessages(prev => [
-                ...prev.filter(m => m.id !== tempUserMessage.id),
-                { ...tempUserMessage, id: response.message.id },
-                response.message
-            ]);
+            // Replace optimistic message with real one and add assistant response
+            setMessages(prev => {
+                const filtered = prev.filter(m => m.id !== tempId);
+                return [
+                    ...filtered,
+                    { ...tempUserMessage, id: response.message.id, session_id: currentSessionId! }, // Update with real ID
+                    response.message
+                ];
+            });
+
         } catch (error) {
             console.error('Failed to send message:', error);
-            // Remove temp message on error
-            setMessages(prev => prev.filter(m => m.id !== tempUserMessage.id));
+            // Remove optimistic message on error
+            setMessages(prev => prev.filter(m => m.id !== tempId));
+            alert('Failed to send message. Please try again.');
         } finally {
             setLoading(false);
         }
     };
 
-    const handleKeyPress = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            handleSend();
+    // Close dropdown when clicking outside (simple version)
+    useEffect(() => {
+        const handleClickOutside = () => setAgentDropdownOpen(false);
+        if (agentDropdownOpen) {
+            document.addEventListener('click', handleClickOutside);
         }
-    };
+        return () => {
+            document.removeEventListener('click', handleClickOutside);
+        };
+    }, [agentDropdownOpen]);
 
     return (
-        <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 transition-colors duration-200">
-            {/* Header with Agent Dropdown */}
-            <div className="h-14 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 bg-slate-50 dark:bg-slate-950 transition-colors duration-200">
+        <div className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-900 transition-colors duration-200 h-screen overflow-hidden">
+            {/* Header */}
+            <div className="flex-none h-16 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 flex items-center justify-between px-4 z-10 shadow-sm">
                 <div className="flex items-center gap-3">
                     {!sidebarOpen && (
                         <button
                             onClick={onToggleSidebar}
-                            className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-500 dark:text-slate-400"
                         >
-                            <Menu className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+                            <Menu className="w-5 h-5" />
                         </button>
                     )}
 
-                    {/* Agent Dropdown */}
-                    <div className="relative">
+                    {/* Agent Selector */}
+                    <div className="relative" onClick={e => e.stopPropagation()}>
                         <button
-                            onClick={() => setAgentDropdownOpen(!agentDropdownOpen)}
-                            className="flex items-center gap-2 px-4 py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 rounded-lg transition-colors text-slate-900 dark:text-white"
+                            onClick={() => !isLoadingAgents && setAgentDropdownOpen(!agentDropdownOpen)}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-md transition-colors text-slate-900 dark:text-slate-100 font-medium text-sm disabled:opacity-50 disabled:cursor-wait"
+                            disabled={isLoadingAgents}
                         >
-                            <Bot className="w-5 h-5" />
-                            <span className="font-medium">
-                                {selectedAgent?.name || 'Select Agent'}
-                            </span>
-                            <ChevronDown className="w-4 h-4" />
+                            {isLoadingAgents ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 animate-spin text-blue-600 dark:text-blue-400" />
+                                    <span>Loading Agents...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Bot className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                    <span>{selectedAgent?.name || 'Select Agent'}</span>
+                                    <ChevronDown className="w-4 h-4 text-slate-500" />
+                                </>
+                            )}
                         </button>
 
-                        {/* Dropdown Menu */}
+                        {/* Dropdown */}
                         {agentDropdownOpen && (
-                            <div className="absolute top-full left-0 mt-2 w-64 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 py-2 z-50">
+                            <div className="absolute top-full left-0 mt-2 w-72 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 py-1 overflow-hidden z-50">
                                 {agents.map((agent) => (
                                     <button
                                         key={agent.id}
@@ -157,15 +194,20 @@ export default function ChatArea({
                                             onAgentChange(agent);
                                             setAgentDropdownOpen(false);
                                         }}
-                                        className={`w-full text-left px-4 py-3 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors ${selectedAgent?.id === agent.id ? 'bg-slate-100 dark:bg-slate-700' : ''
+                                        className={`w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex items-start gap-3 ${selectedAgent?.id === agent.id ? 'bg-slate-50 dark:bg-slate-700/50' : ''
                                             }`}
                                     >
-                                        <div className="font-medium text-slate-900 dark:text-white">{agent.name}</div>
-                                        {agent.description && (
-                                            <div className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                                                {agent.description}
-                                            </div>
-                                        )}
+                                        <div className="mt-1">
+                                            <Bot className="w-8 h-8 p-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg" />
+                                        </div>
+                                        <div>
+                                            <div className="font-medium text-slate-900 dark:text-slate-100 text-sm">{agent.name}</div>
+                                            {agent.description && (
+                                                <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">
+                                                    {agent.description}
+                                                </div>
+                                            )}
+                                        </div>
                                     </button>
                                 ))}
                             </div>
@@ -173,104 +215,113 @@ export default function ChatArea({
                     </div>
                 </div>
 
-                {/* New Chat Button */}
-                <button
-                    onClick={onNewChat}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
-                >
-                    New Chat
-                </button>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={onNewChat}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium shadow-sm hover:shadow"
+                    >
+                        <span className="hidden sm:inline">New Chat</span>
+                        <Send className="w-4 h-4 sm:hidden" />
+                    </button>
+                </div>
             </div>
 
-            {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto">
-                {messages.length === 0 ? (
-                    <div className="h-full flex items-center justify-center text-slate-500">
-                        <div className="text-center space-y-3">
-                            <Bot className="w-16 h-16 mx-auto text-slate-400 dark:text-slate-600" />
-                            <p className="text-lg font-medium text-slate-700 dark:text-slate-300">Start a conversation</p>
-                            <p className="text-sm">
-                                {selectedAgent
-                                    ? `Ask ${selectedAgent.name} anything`
-                                    : 'Select an agent to begin'}
-                            </p>
+            {/* Chat Messages */}
+            <div className="flex-1 overflow-y-auto min-h-0 bg-white dark:bg-slate-900 scroll-smooth">
+                {!activeSession && messages.length === 0 ? (
+                    // Empty State
+                    <div className="h-full flex flex-col items-center justify-center p-8 text-center text-slate-500 dark:text-slate-400">
+                        <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center mb-6">
+                            <Bot className="w-10 h-10 text-slate-400 dark:text-slate-500" />
                         </div>
+                        <h2 className="text-2xl font-semibold text-slate-900 dark:text-white mb-2">
+                            {selectedAgent ? `Chat with ${selectedAgent.name}` : 'Start a new conversation'}
+                        </h2>
+                        <p className="max-w-md mx-auto mb-8">
+                            {selectedAgent
+                                ? selectedAgent.description
+                                : 'Select an agent from the dropdown to begin exploring their capabilities.'}
+                        </p>
                     </div>
                 ) : (
-                    <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+                    // Message List
+                    <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
                         {messages.map((message) => (
                             <div
                                 key={message.id}
-                                className={`flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'
-                                    }`}
+                                className={`flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                             >
+                                {/* Assistant Avatar */}
                                 {message.role === 'assistant' && (
-                                    <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                                    <div className="w-8 h-8 bg-blue-600 dark:bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm mt-1">
                                         <Bot className="w-5 h-5 text-white" />
                                     </div>
                                 )}
 
+                                {/* Message Bubble */}
                                 <div
-                                    className={`max-w-[80%] rounded-2xl px-4 py-3 ${message.role === 'user'
-                                        ? 'bg-blue-600 text-white'
-                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100'
+                                    className={`relative max-w-[85%] rounded-2xl px-5 py-3 shadow-sm ${message.role === 'user'
+                                        ? 'bg-blue-600 text-white rounded-br-none'
+                                        : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-100 dark:border-slate-700 rounded-bl-none'
                                         }`}
                                 >
-                                    <p className="whitespace-pre-wrap">{message.content}</p>
+                                    <div className="whitespace-pre-wrap leading-relaxed text-[15px]">{message.content}</div>
                                 </div>
 
+                                {/* User Avatar */}
                                 {message.role === 'user' && (
-                                    <div className="w-8 h-8 bg-slate-200 dark:bg-slate-700 rounded-full flex items-center justify-center flex-shrink-0">
-                                        <span className="text-slate-900 dark:text-white text-sm font-medium">You</span>
+                                    <div className="w-8 h-8 bg-slate-200 dark:bg-slate-700 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                                        <span className="text-xs font-medium text-slate-600 dark:text-slate-300">You</span>
                                     </div>
                                 )}
                             </div>
                         ))}
 
+                        {/* Loading Indicator */}
                         {loading && (
                             <div className="flex gap-4">
-                                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm mt-1">
                                     <Bot className="w-5 h-5 text-white" />
                                 </div>
-                                <div className="bg-slate-100 dark:bg-slate-800 rounded-2xl px-4 py-3">
+                                <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl rounded-bl-none px-4 py-3 shadow-sm">
                                     <Loader2 className="w-5 h-5 text-slate-400 animate-spin" />
                                 </div>
                             </div>
                         )}
-
-                        <div ref={messagesEndRef} />
+                        <div ref={messagesEndRef} className="h-4" />
                     </div>
                 )}
             </div>
 
             {/* Input Area */}
-            <div className="border-t border-slate-200 dark:border-slate-800 p-4 bg-slate-50 dark:bg-slate-950 transition-colors duration-200">
-                <div className="max-w-3xl mx-auto">
-                    <div className="flex gap-3 items-end">
-                        <textarea
-                            value={input}
-                            onChange={(e) => setInput(e.target.value)}
-                            onKeyPress={handleKeyPress}
-                            placeholder={
-                                selectedAgent
-                                    ? `Message ${selectedAgent.name}...`
-                                    : 'Select an agent first...'
+            <div className="flex-none p-4 bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800">
+                <div className="max-w-3xl mx-auto relative">
+                    <textarea
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        onKeyDown={e => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSend();
                             }
-                            disabled={!selectedAgent || loading}
-                            className="flex-1 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl px-4 py-3 resize-none focus:outline-none focus:ring-2 focus:ring-blue-600 disabled:opacity-50 disabled:cursor-not-allowed border border-slate-200 dark:border-slate-700 placeholder-slate-400 dark:placeholder-slate-500"
-                            rows={1}
-                            style={{
-                                minHeight: '48px',
-                                maxHeight: '200px'
-                            }}
-                        />
-                        <button
-                            onClick={handleSend}
-                            disabled={!input.trim() || !selectedAgent || loading}
-                            className="p-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-xl transition-colors"
-                        >
-                            <Send className="w-5 h-5" />
-                        </button>
+                        }}
+                        placeholder={selectedAgent ? `Message ${selectedAgent.name}...` : 'Select an agent to start...'}
+                        disabled={!selectedAgent || loading}
+                        className="w-full bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl pl-4 pr-12 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 border border-slate-200 dark:border-slate-700 resize-none shadow-sm transition-all placeholder:text-slate-400"
+                        rows={1}
+                        style={{ minHeight: '52px', maxHeight: '200px' }}
+                    />
+                    <button
+                        onClick={handleSend}
+                        disabled={!input.trim() || !selectedAgent || loading}
+                        className="absolute right-2 bottom-2 p-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-lg transition-colors shadow-sm"
+                    >
+                        <Send className="w-4 h-4" />
+                    </button>
+                    <div className="text-center mt-2">
+                        <p className="text-xs text-slate-400 dark:text-slate-500">
+                            AI agents can make mistakes. Verify important information.
+                        </p>
                     </div>
                 </div>
             </div>
