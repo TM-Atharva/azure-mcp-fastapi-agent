@@ -99,7 +99,7 @@ export default function ChatLayout() {
                 onNewChat={handleNewChat}
                 onDeleteSession={handleDeleteSession}
                 isOpen={sidebarOpen}
-                onToggle={() => setSidebarOpen(!sidebarOpen)}
+                onToggle={() => setSidebarOpen(prev => !prev)}
                 isLoading={loadingSessions || loadingAgents}
             />
 
@@ -112,7 +112,7 @@ export default function ChatLayout() {
                 onNewChat={handleNewChat}
                 onSessionCreated={handleSessionCreated}
                 sidebarOpen={sidebarOpen}
-                onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+                onToggleSidebar={() => setSidebarOpen(prev => !prev)}
                 isLoadingAgents={loadingAgents}
             />
         </div>

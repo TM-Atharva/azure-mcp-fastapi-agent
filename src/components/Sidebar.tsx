@@ -1,6 +1,6 @@
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { MessageSquarePlus, Trash2, LogOut, User, Sun, Moon } from 'lucide-react';
+import { MessageSquarePlus, Trash2, LogOut, User, Sun, Moon, PanelLeftClose } from 'lucide-react';
 import type { ChatSession } from '../types';
 
 interface SidebarProps {
@@ -21,6 +21,7 @@ export default function Sidebar({
     onNewChat,
     onDeleteSession,
     isOpen,
+    onToggle,
     isLoading = false
 }: SidebarProps) {
     const { user, logout } = useAuth();
@@ -30,11 +31,17 @@ export default function Sidebar({
 
     return (
         <div className="w-64 bg-white dark:bg-slate-950 flex flex-col border-r border-slate-200 dark:border-slate-800">
-            {/* Header: Project Name */}
-            <div className="p-4 border-b border-slate-200 dark:border-slate-800">
-                <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent px-1">
+            {/* Header: Project Name & Toggle */}
+            <div className="h-16 flex items-center justify-between px-4 border-b border-slate-200 dark:border-slate-800">
+                <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
                     Foundry Chat
                 </h1>
+                <button
+                    onClick={onToggle}
+                    className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-500 dark:text-slate-400 transition-colors"
+                >
+                    <PanelLeftClose className="w-5 h-5" />
+                </button>
             </div>
 
             {/* Chat History */}

@@ -246,13 +246,7 @@ export default function ChatArea({
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <button
-                        onClick={onNewChat}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium shadow-sm hover:shadow"
-                    >
-                        <span className="hidden sm:inline">New Chat</span>
-                        <Send className="w-4 h-4 sm:hidden" />
-                    </button>
+                    {/* New Chat Button Removed as per request */}
                 </div>
             </div>
 
@@ -334,10 +328,10 @@ export default function ChatArea({
                         </div>
                     </div>
                 )}
-                <div ref={messagesEndRef} className="h-4" />
+                {messages.length > 0 && <div ref={messagesEndRef} className="h-4" />}
             </div>
             {/* Input Area */}
-            <div className="flex-none p-4 bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800">
+            <div className="flex-none p-4 bg-white dark:bg-slate-950">
                 <div className="max-w-3xl mx-auto relative">
                     <div className="relative flex items-end gap-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm focus-within:ring-2 focus-within:ring-blue-500/50 transition-all">
                         <textarea
