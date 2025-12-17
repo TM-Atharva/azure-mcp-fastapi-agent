@@ -33,27 +33,56 @@ export default function ChatArea({
 
     // Use a ref for the scroll anchor
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    // Use a ref to skip fetch after creating a session (prevents wiping optimistic state)
+    const skipNextFetchRef = useRef(false);
+    // Use a ref to track the last rendered session ID to detect switches
+    const lastSessionIdRef = useRef<string | undefined>(activeSession?.id);
+
+    // Derived state: Are we in the process of switching sessions?
+    // We ignore this if we are in the "skip fetch" (creation) mode.
+    const isSwitchingSession = activeSession?.id &&
+        activeSession.id !== lastSessionIdRef.current &&
+        !skipNextFetchRef.current;
 
     // Initial fetch when session changes
     useEffect(() => {
         let isMounted = true;
 
+        if (skipNextFetchRef.current) {
+            skipNextFetchRef.current = false;
+            // Sync the ref immediately since we are skipping the fetch logic
+            lastSessionIdRef.current = activeSession?.id;
+            return;
+        }
+
         const loadMessages = async () => {
             if (activeSession) {
-                setLoading(true); // Show local loading state if needed
+                setLoading(true);
+                // Note: We don't strictly need to clear messages here if we use isSwitchingSession
+                // but it's good practice.
+                setMessages([]);
+
                 try {
                     const response = await api.getSessionHistory(activeSession.id);
                     if (isMounted) {
                         setMessages(response.messages || []);
+                        // Sync the ref now that we have data
+                        lastSessionIdRef.current = activeSession.id;
                     }
                 } catch (error) {
                     console.error('Failed to fetch messages:', error);
-                    if (isMounted) setMessages([]);
+                    if (isMounted) {
+                        setMessages([]);
+                        lastSessionIdRef.current = activeSession.id;
+                    }
                 } finally {
                     if (isMounted) setLoading(false);
                 }
             } else {
-                if (isMounted) setMessages([]);
+                if (isMounted) {
+                    setMessages([]);
+                    lastSessionIdRef.current = activeSession?.id; // Sync for new chat (null)
+                }
             }
         };
 
@@ -62,7 +91,7 @@ export default function ChatArea({
         return () => {
             isMounted = false;
         };
-    }, [activeSession?.id]); // Only re-run if session ID changes
+    }, [activeSession?.id]);
 
     // Scroll to bottom on new messages
     useEffect(() => {
@@ -101,6 +130,7 @@ export default function ChatArea({
                     });
                     currentSessionId = sessionResponse.session.id;
                     // Notify parent to update sidebar, but we handle state locally mostly
+                    skipNextFetchRef.current = true;
                     onSessionCreated(sessionResponse.session);
                 } catch (error) {
                     console.error('Failed to create session:', error);
@@ -228,8 +258,20 @@ export default function ChatArea({
 
             {/* Chat Messages */}
             <div className="flex-1 overflow-y-auto min-h-0 bg-white dark:bg-slate-900 scroll-smooth">
-                {!activeSession && messages.length === 0 ? (
-                    // Empty State
+                {isSwitchingSession || (messages.length === 0 && loading) ? (
+                    // Skeleton Loader for Session Switch
+                    <div className="h-full max-w-3xl mx-auto px-4 py-8 space-y-6">
+                        <div className="flex justify-center mb-8">
+                            <span className="text-sm text-slate-400 animate-pulse">Loading conversation...</span>
+                        </div>
+                        {[1, 2, 3, 4].map((i) => (
+                            <div key={i} className={`flex gap-4 ${i % 2 === 0 ? 'justify-start' : 'justify-end'} animate-pulse opacity-50`}>
+                                <div className={`h-16 rounded-2xl w-[70%] ${i % 2 === 0 ? 'bg-slate-100 dark:bg-slate-800' : 'bg-slate-200 dark:bg-slate-700'}`}></div>
+                            </div>
+                        ))}
+                    </div>
+                ) : !activeSession && messages.length === 0 ? (
+                    // Empty State (New Chat)
                     <div className="h-full flex flex-col items-center justify-center p-8 text-center text-slate-500 dark:text-slate-400">
                         <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center mb-6">
                             <Bot className="w-10 h-10 text-slate-400 dark:text-slate-500" />
@@ -276,48 +318,51 @@ export default function ChatArea({
                                 )}
                             </div>
                         ))}
-
-                        {/* Loading Indicator */}
-                        {loading && (
-                            <div className="flex gap-4">
-                                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm mt-1">
-                                    <Bot className="w-5 h-5 text-white" />
-                                </div>
-                                <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl rounded-bl-none px-4 py-3 shadow-sm">
-                                    <Loader2 className="w-5 h-5 text-slate-400 animate-spin" />
-                                </div>
-                            </div>
-                        )}
-                        <div ref={messagesEndRef} className="h-4" />
                     </div>
                 )}
-            </div>
 
+                {/* Bottom Loading Indicator (for sending) */}
+                {loading && !isSwitchingSession && messages.length > 0 && (
+                    <div className="max-w-3xl mx-auto px-4 pb-4">
+                        <div className="flex gap-4">
+                            <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm mt-1">
+                                <Bot className="w-5 h-5 text-white" />
+                            </div>
+                            <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl rounded-bl-none px-4 py-3 shadow-sm">
+                                <Loader2 className="w-5 h-5 text-slate-400 animate-spin" />
+                            </div>
+                        </div>
+                    </div>
+                )}
+                <div ref={messagesEndRef} className="h-4" />
+            </div>
             {/* Input Area */}
             <div className="flex-none p-4 bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800">
                 <div className="max-w-3xl mx-auto relative">
-                    <textarea
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        onKeyDown={e => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault();
-                                handleSend();
-                            }
-                        }}
-                        placeholder={selectedAgent ? `Message ${selectedAgent.name}...` : 'Select an agent to start...'}
-                        disabled={!selectedAgent || loading}
-                        className="w-full bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl pl-4 pr-12 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 border border-slate-200 dark:border-slate-700 resize-none shadow-sm transition-all placeholder:text-slate-400"
-                        rows={1}
-                        style={{ minHeight: '52px', maxHeight: '200px' }}
-                    />
-                    <button
-                        onClick={handleSend}
-                        disabled={!input.trim() || !selectedAgent || loading}
-                        className="absolute right-2 bottom-2 p-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-lg transition-colors shadow-sm"
-                    >
-                        <Send className="w-4 h-4" />
-                    </button>
+                    <div className="relative flex items-end gap-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm focus-within:ring-2 focus-within:ring-blue-500/50 transition-all">
+                        <textarea
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                            onKeyDown={e => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                    e.preventDefault();
+                                    handleSend();
+                                }
+                            }}
+                            placeholder={selectedAgent ? `Message ${selectedAgent.name}...` : 'Select an agent to start...'}
+                            disabled={!selectedAgent || loading}
+                            className="w-full bg-transparent text-slate-900 dark:text-white rounded-xl pl-4 pr-12 py-3.5 focus:outline-none resize-none placeholder:text-slate-400"
+                            rows={1}
+                            style={{ minHeight: '52px', maxHeight: '200px' }}
+                        />
+                        <button
+                            onClick={handleSend}
+                            disabled={!input.trim() || !selectedAgent || loading}
+                            className="absolute right-2 bottom-2 p-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-lg transition-colors shadow-sm"
+                        >
+                            <Send className="w-4 h-4" />
+                        </button>
+                    </div>
                     <div className="text-center mt-2">
                         <p className="text-xs text-slate-400 dark:text-slate-500">
                             AI agents can make mistakes. Verify important information.

@@ -30,19 +30,23 @@ export default function Sidebar({
 
     return (
         <div className="w-64 bg-white dark:bg-slate-950 flex flex-col border-r border-slate-200 dark:border-slate-800">
-            {/* New Chat Button */}
-            <div className="p-3 border-b border-slate-200 dark:border-slate-800">
-                <button
-                    onClick={onNewChat}
-                    className="w-full flex items-center gap-3 px-4 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-colors"
-                >
-                    <MessageSquarePlus className="w-5 h-5" />
-                    <span className="font-medium">New Chat</span>
-                </button>
+            {/* Header: Project Name */}
+            <div className="p-4 border-b border-slate-200 dark:border-slate-800">
+                <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent px-1">
+                    Foundry Chat
+                </h1>
             </div>
 
             {/* Chat History */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-1">
+            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                <button
+                    onClick={onNewChat}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 mb-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg transition-all shadow-sm group"
+                >
+                    <MessageSquarePlus className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                    <span className="font-medium">New Chat</span>
+                </button>
+
                 {isLoading ? (
                     // Skeleton Loader
                     [...Array(5)].map((_, i) => (
@@ -51,7 +55,7 @@ export default function Sidebar({
                         </div>
                     ))
                 ) : sessions.length === 0 ? (
-                    <div className="text-center py-8 text-slate-500 dark:text-slate-500 text-sm">
+                    <div className="text-center py-4 text-slate-500 dark:text-slate-500 text-sm">
                         No chat history yet
                     </div>
                 ) : (
@@ -86,8 +90,8 @@ export default function Sidebar({
             </div>
 
             {/* User Profile, Theme Toggle & Logout */}
-            <div className="p-3 border-t border-slate-200 dark:border-slate-800">
-                <div className="flex items-center gap-2 px-3 py-2 text-slate-700 dark:text-slate-300">
+            <div className="p-4 border-t border-slate-200 dark:border-slate-800">
+                <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
                     <div className="w-8 h-8 bg-slate-200 dark:bg-slate-800 rounded-full flex items-center justify-center">
                         <User className="w-5 h-5" />
                     </div>

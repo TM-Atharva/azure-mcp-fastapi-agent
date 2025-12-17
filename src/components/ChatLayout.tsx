@@ -100,12 +100,11 @@ export default function ChatLayout() {
                 onDeleteSession={handleDeleteSession}
                 isOpen={sidebarOpen}
                 onToggle={() => setSidebarOpen(!sidebarOpen)}
-                isLoading={loadingSessions}
+                isLoading={loadingSessions || loadingAgents}
             />
 
             {/* Main Chat Area */}
             <ChatArea
-                key={activeSession?.id || selectedAgent?.id || 'new'}
                 selectedAgent={selectedAgent}
                 agents={agents}
                 activeSession={activeSession}
