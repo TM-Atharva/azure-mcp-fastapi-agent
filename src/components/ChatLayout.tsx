@@ -93,7 +93,7 @@ export default function ChatLayout() {
         <div className="flex h-screen bg-white dark:bg-slate-900 transition-colors duration-200">
             {/* Sidebar */}
             <Sidebar
-                sessions={sessions}
+                sessions={selectedAgent ? sessions.filter(s => String(s.agent_id) === String(selectedAgent.id)) : sessions}
                 activeSession={activeSession}
                 onSelectSession={handleSelectSession}
                 onNewChat={handleNewChat}

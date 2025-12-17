@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { Send, Menu, ChevronDown, Bot, Loader2 } from 'lucide-react';
 import { api } from '../services/api';
 import type { Agent, ChatSession, ChatMessage } from '../types';
@@ -297,11 +298,13 @@ export default function ChatArea({
                                 {/* Message Bubble */}
                                 <div
                                     className={`relative max-w-[85%] rounded-2xl px-5 py-3 shadow-sm ${message.role === 'user'
-                                        ? 'bg-blue-600 text-white rounded-br-none'
+                                        ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-br-none'
                                         : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-100 dark:border-slate-700 rounded-bl-none'
                                         }`}
                                 >
-                                    <div className="whitespace-pre-wrap leading-relaxed text-[15px]">{message.content}</div>
+                                    <div className="prose prose-slate dark:prose-invert max-w-none leading-relaxed text-[15px]">
+                                        <ReactMarkdown>{message.content}</ReactMarkdown>
+                                    </div>
                                 </div>
 
                                 {/* User Avatar */}

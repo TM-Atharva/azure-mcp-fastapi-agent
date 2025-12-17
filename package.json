@@ -14,10 +14,12 @@
     "@azure/msal-browser": "^4.27.0",
     "@azure/msal-react": "^3.0.23",
     "@supabase/supabase-js": "^2.57.4",
+    "@tailwindcss/typography": "^0.5.19",
     "axios": "^1.13.2",
     "lucide-react": "^0.344.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-markdown": "^10.1.0",
     "react-router-dom": "^7.10.1"
   },
   "devDependencies": {
