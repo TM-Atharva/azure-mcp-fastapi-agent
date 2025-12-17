@@ -274,70 +274,84 @@ export default function ChatArea({
 
             {/* Chat Messages */}
             <div className="flex-1 overflow-y-auto min-h-0 bg-white dark:bg-slate-900 scroll-smooth">
-                {isSwitchingSession || (messages.length === 0 && loading) ? (
-                    // Skeleton Loader for Session Switch
-                    <div className="h-full max-w-3xl mx-auto px-4 py-8 space-y-6">
-                        <div className="flex justify-center mb-8">
-                            <span className="text-sm text-slate-400 animate-pulse">Loading conversation...</span>
-                        </div>
-                        {[1, 2, 3, 4].map((i) => (
-                            <div key={i} className={`flex gap-4 ${i % 2 === 0 ? 'justify-start' : 'justify-end'} animate-pulse opacity-50`}>
-                                <div className={`h-16 rounded-2xl w-[70%] ${i % 2 === 0 ? 'bg-slate-100 dark:bg-slate-800' : 'bg-slate-200 dark:bg-slate-700'}`}></div>
-                            </div>
-                        ))}
-                    </div>
-                ) : (!activeSession && !messages.some(m => m.session_id === 'temp')) ? (
-                    // Empty State (New Chat) or Stale Messages (Hidden)
-                    <div className="h-full flex flex-col items-center justify-center p-8 text-center text-slate-500 dark:text-slate-400">
-                        <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center mb-6">
-                            <Bot className="w-10 h-10 text-slate-400 dark:text-slate-500" />
-                        </div>
-                        <h2 className="text-2xl font-semibold text-slate-900 dark:text-white mb-2">
-                            {selectedAgent ? `Chat with ${selectedAgent.name}` : 'Start a new conversation'}
-                        </h2>
-                        <p className="max-w-md mx-auto mb-8">
-                            {selectedAgent
-                                ? selectedAgent.description
-                                : 'Select an agent from the dropdown to begin exploring their capabilities.'}
-                        </p>
-                    </div>
-                ) : (
-                    // Message List
-                    <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
-                        {messages.map((message) => (
-                            <div
-                                key={message.id}
-                                className={`flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                            >
-                                {/* Assistant Avatar */}
-                                {message.role === 'assistant' && (
-                                    <div className="w-8 h-8 bg-blue-600 dark:bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm mt-1">
-                                        <Bot className="w-5 h-5 text-white" />
-                                    </div>
-                                )}
-
-                                {/* Message Bubble */}
-                                <div
-                                    className={`relative max-w-[85%] rounded-2xl px-5 py-3 shadow-sm ${message.role === 'user'
-                                        ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-br-none'
-                                        : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-100 dark:border-slate-700 rounded-bl-none'
-                                        }`}
-                                >
-                                    <div className="prose prose-slate dark:prose-invert max-w-none leading-relaxed text-[15px]">
-                                        <ReactMarkdown>{message.content}</ReactMarkdown>
-                                    </div>
+                {(() => {
+                    // 1. Loading/Switching State
+                    if (isSwitchingSession || (messages.length === 0 && loading)) {
+                        return (
+                            <div className="h-full max-w-3xl mx-auto px-4 py-8 space-y-6">
+                                <div className="flex justify-center mb-8">
+                                    <span className="text-sm text-slate-400 animate-pulse">Loading conversation...</span>
                                 </div>
-
-                                {/* User Avatar */}
-                                {message.role === 'user' && (
-                                    <div className="w-8 h-8 bg-slate-200 dark:bg-slate-700 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                                        <span className="text-xs font-medium text-slate-600 dark:text-slate-300">You</span>
+                                {[1, 2, 3, 4].map((i) => (
+                                    <div key={i} className={`flex gap-4 ${i % 2 === 0 ? 'justify-start' : 'justify-end'} animate-pulse opacity-50`}>
+                                        <div className={`h-16 rounded-2xl w-[70%] ${i % 2 === 0 ? 'bg-slate-100 dark:bg-slate-800' : 'bg-slate-200 dark:bg-slate-700'}`}></div>
                                     </div>
-                                )}
+                                ))}
                             </div>
-                        ))}
-                    </div>
-                )}
+                        );
+                    }
+
+                    // 2. Empty State (New Chat) - Show if no active session AND no optimistic messages
+                    // We explicitly check for session_id 'temp' to allow optimistic messages to show even if activeSession is briefly null
+                    const isNewChat = !activeSession;
+                    const hasOptimisticMessages = messages.some(m => m.session_id === 'temp');
+
+                    if (isNewChat && !hasOptimisticMessages) {
+                        return (
+                            <div className="h-full flex flex-col items-center justify-center p-8 text-center text-slate-500 dark:text-slate-400">
+                                <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center mb-6">
+                                    <Bot className="w-10 h-10 text-slate-400 dark:text-slate-500" />
+                                </div>
+                                <h2 className="text-2xl font-semibold text-slate-900 dark:text-white mb-2">
+                                    {selectedAgent ? `Chat with ${selectedAgent.name}` : 'Start a new conversation'}
+                                </h2>
+                                <p className="max-w-md mx-auto mb-8">
+                                    {selectedAgent
+                                        ? selectedAgent.description
+                                        : 'Select an agent from the dropdown to begin exploring their capabilities.'}
+                                </p>
+                            </div>
+                        );
+                    }
+
+                    // 3. Message List
+                    return (
+                        <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
+                            {messages.map((message) => (
+                                <div
+                                    key={message.id}
+                                    className={`flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                                >
+                                    {/* Assistant Avatar */}
+                                    {message.role === 'assistant' && (
+                                        <div className="w-8 h-8 bg-blue-600 dark:bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm mt-1">
+                                            <Bot className="w-5 h-5 text-white" />
+                                        </div>
+                                    )}
+
+                                    {/* Message Bubble */}
+                                    <div
+                                        className={`relative max-w-[85%] rounded-2xl px-5 py-3 shadow-sm ${message.role === 'user'
+                                            ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-br-none'
+                                            : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-100 dark:border-slate-700 rounded-bl-none'
+                                            }`}
+                                    >
+                                        <div className="prose prose-slate dark:prose-invert max-w-none leading-relaxed text-[15px]">
+                                            <ReactMarkdown>{message.content}</ReactMarkdown>
+                                        </div>
+                                    </div>
+
+                                    {/* User Avatar */}
+                                    {message.role === 'user' && (
+                                        <div className="w-8 h-8 bg-slate-200 dark:bg-slate-700 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                                            <span className="text-xs font-medium text-slate-600 dark:text-slate-300">You</span>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    );
+                })()}
 
                 {/* Bottom Loading Indicator (for sending) */}
                 {loading && !isSwitchingSession && messages.length > 0 && (
